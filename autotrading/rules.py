@@ -32,4 +32,4 @@ def mean_reversion_action(price, e20, rsi_prev, rsi_now, hour_bull):
     return "HOLD"
 
 
-STRATEGIES = ("baseline", "momentum", "mean_reversion")
+STRATEGIES = ("baseline", "momentum", "mean_reversion", "ema_pullback", "donchian_20", "donchian_55", "bollinger_reversal", "bollinger_breakout", "macd_crossover", "rsi_trend", "rsi2_dip", "ema_triple", "roc_momentum", "atr_channel", "stochastic_rebound")
