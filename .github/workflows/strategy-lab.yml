@@ -52,6 +52,17 @@ on:
           - '123'
           - '2026'
 
+  # Run automatically after new research code is pushed; report-only commits do not retrigger.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/strategy-lab.yml'
+      - 'autotrading/**'
+      - 'strategy_lab.py'
+      - 'publish_reports.py'
+      - 'build_dashboard.py'
+      - 'tests/**'
+
   # Weekly default discovery runs, no credentials, no trading; set to Sunday UTC.
   schedule:
     - cron: '15 6 * * 0'
@@ -68,6 +79,8 @@ jobs:
     name: Random-window backtest, read-only
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write # only to publish public historical research JSON; no credentials are stored
     env:
       LAB_MODE: ${{ inputs.mode || 'discover' }}
       LAB_DAYS: ${{ inputs.days || '365' }}
@@ -85,7 +98,7 @@ jobs:
 
       - name: Offline unit tests (no keys/orders)
         run: |
-          python -m compileall -q autotrading tests strategy_lab.py build_dashboard.py analyze.py backtest.py
+          python -m compileall -q autotrading tests strategy_lab.py build_dashboard.py publish_reports.py analyze.py backtest.py
           python -m unittest discover -s tests -v
 
       - name: Run random-window Strategy Lab
@@ -96,6 +109,19 @@ jobs:
             --symbol "$LAB_SYMBOL" \
             --windows "$LAB_WINDOWS" \
             --seed "$LAB_SEED"
+
+      - name: Publish public-safe report for Lovable app
+        if: ${{ env.LAB_MODE == 'discover' && github.ref == 'refs/heads/main' }}
+        run: |
+          python publish_reports.py --run-id "$GITHUB_RUN_ID" --source-sha "$GITHUB_SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/latest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: refresh public Strategy Lab research snapshot [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
 
       - name: Build interactive offline HTML dashboard
         run: python build_dashboard.py
