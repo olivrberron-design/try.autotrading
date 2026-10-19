@@ -47,8 +47,8 @@ def table(report):
                      f"| {value['completed_trades_across_windows_including_overlap']} "
                      f"| {value['zero_trade_windows']} "
                      f"| {'eligible' if value['screen_eligible'] else 'insufficient activity'} |")
-    lines += ["", f"**Training-selected strategy:** \`{report['selected_by_discovery_only'] or 'none'}\`",
-              f"; **passes minimal screening:** \`{report['passes_basic_discovery_screen']}\`.",
+    lines += ["", f"**Discovery-selected strategy:** `{report['selected_by_discovery_only'] or 'none'}` "
+              f"| **passes minimal screening:** `{report['passes_basic_discovery_screen']}`.",
               f"Random-window overlap: **{report['overlap_pct_of_unique_discovery_bars']}%** of covered 15m bars belong to multiple windows.",
               "",
               "<details><summary>Performance by regime known at each window START (no future data)</summary>",
@@ -119,7 +119,7 @@ def main():
         "# AutoTrading Strategy Lab",
         "",
         f"Mode: **{args.mode}**; {args.days} days; {args.windows} random windows per asset; "
-        f"fixed seed \`{args.seed}\`.",
+        f"fixed seed `{args.seed}`.",
         "All orders are simulated. The existing Binance Demo BTC is untouched.",
         "",
     ]
