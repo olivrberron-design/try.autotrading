@@ -7,7 +7,8 @@ from bisect import bisect_right
 from datetime import datetime, timezone
 
 from .indicators import ema, rsi, macd
-from .rules import baseline_action, momentum_action, mean_reversion_action, STRATEGIES
+from .rules import STRATEGIES
+from .catalog import compute_catalog_signals
 
 
 def iso_millis(ms):
@@ -15,45 +16,8 @@ def iso_millis(ms):
 
 
 def compute_signals(fast, hourly):
-    if len(fast) < 100 or len(hourly) < 210:
-        raise ValueError("Insufficient bars for indicators")
-    prices = [c.close for c in fast]
-    hprices = [c.close for c in hourly]
-    e20, e50 = ema(prices, 20), ema(prices, 50)
-    hr50, hr200 = ema(hprices, 50), ema(hprices, 200)
-    strength = rsi(prices, 14)
-    _, _, histogram = macd(prices)
-    hour_closes = [c.close_time_ms for c in hourly]
-    volume_prefix = [0]
-    for c in fast:
-        volume_prefix.append(volume_prefix[-1] + c.volume)
-
-    signals = {name: ["HOLD"] * len(fast) for name in STRATEGIES}
-    for i, bar in enumerate(fast):
-        if i < 60:
-            continue
-        # This is the newest COMPLETED 1h bar as of the signal's 15m close.
-        j = bisect_right(hour_closes, bar.close_time_ms) - 1
-        if j < 199 or hr200[j] is None:
-            continue
-        prev_avg_volume = (volume_prefix[i] - volume_prefix[i - 20]) / 20
-        if (prev_avg_volume <= 0 or strength[i] is None
-                or strength[i - 1] is None or histogram[i] is None):
-            continue
-        bull = hr50[j] > hr200[j]
-        signals["baseline"][i] = baseline_action(
-            e20[i-1], e50[i-1], e20[i], e50[i], bull,
-            strength[i-1], strength[i], histogram[i],
-            bar.volume, prev_avg_volume
-        )
-        signals["momentum"][i] = momentum_action(
-            bar.close, e20[i], e50[i], strength[i-1], strength[i],
-            bull, bar.volume, prev_avg_volume
-        )
-        signals["mean_reversion"][i] = mean_reversion_action(
-            bar.close, e20[i], strength[i-1], strength[i], bull
-        )
-    return signals
+    """Identical completed-candle signals in research and backtests."""
+    return compute_catalog_signals(fast, hourly)
 
 
 def _validate_costs(capital, allocation, fee_bps, slippage_bps):
