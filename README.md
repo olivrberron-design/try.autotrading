@@ -2,6 +2,55 @@
 
 A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt már sikeresen kipróbáltunk. **A megvásárolt BTC-t nem adjuk el automatikusan.**
 
+## Historikus backtesting (BTC és ETH, 3 stratégia)
+
+A backtest **csak adatot olvas** a Binance hivatalos nyilvános Spot Market Data API-jából: `https://data-api.binance.vision`. Nem használ `.env` kulcsokat, nem küld kereskedési megbízást, és **nem nyúl a demós BTC-hez**. Az összes kötés helyi matematikai szimuláció.
+
+**GitHub Desktop:** Fetch origin → Pull origin → Repository → Open in Terminal, majd:
+
+```bash
+python3 -m unittest discover -s tests -v
+python3 backtest.py
+```
+
+Első futáskor akár 1–3 percig is tarthat, mert a legutóbbi 180 nap + 16 nap indikátor-warmup **valódi 15 perces és órás BTCUSDC/ETHUSDC adatait** tölti le. A letöltött adatokat a `data/history` alatt gyorsítótárazza, a jelentéseket a `data/backtests` alá írja. Ezek nem kerülnek GitHubra.
+
+Rövidebb első próba (30 nap):
+
+```bash
+python3 backtest.py --days 30 --symbol BTCUSDC
+```
+
+Teljes egyéves teszt:
+
+```bash
+python3 backtest.py --days 365
+```
+
+Külön költségfeltételekkel:
+
+```bash
+python3 backtest.py --days 180 --fee-bps 10 --slippage-bps 5 --allocation 0.2
+```
+
+**A modellezési feltételek és korlátok:**
+- Három kutatási stratégia: korábbi **EMA+RSI+MACD+volumen** baseline, momentum, RSI mean-reversion.
+- Minden stratégia **külön**, 5000 USDC indulótőkével szimulál; nincs valódi tőkeáttétel, short vagy több párból összerakott portfólió.
+- Alapesetben egyszerre a szabad cash **20%-át** teszi virtuális pozícióba; az egyes stratégiák **nem kezelik a tényleges Binance Demo-egyenleget**.
+- Jelzés kizárólag **lezárt 15m gyertyából** és addig lezárult 1h adatokból; végrehajtás a **következő 15m gyertya nyitóján**.
+- Mindkét oldalon **10 bázispont** fee és **5 bázispont** kedvezőtlen slippage az alapbeállítás. Ezek feltételezések, nem élő díjak vagy garantált végrehajtási árak.
+- **70% train / 30% holdout:** a kiválasztott stratégia kizárólag a train teljesítménye alapján dől el, a holdout csak a későbbi értékelésre szolgál. A holdout kezdetén minden szimulált portfólió újra 5000 USDC-vel indul, a train-ből nyitott pozíció nem megy át.
+- A táblázatban hozam, maximum drawdown, lezárt kötések száma, win rate és **azonos 20%-os allokációjú buy-and-hold** szerepel. A részletes JSON a full buy-and-holdot, profit factort, kötésnaplót és a nyitott pozíció becsült felszámolási értékét is tartalmazza.
+- **Nem modellezünk stop-loss megbízást**, könyvlikviditást, finanszírozási költséget, változó fee tier-eket vagy order-size filtereket; egy gyertyán belüli mozgás nem garantál teljesíthető árat.
+- Ha nincs lezárt kötés, a win rate és profit factor **N/A**, nem 0% vagy 100%. A szimuláció teljesítménye önmagában nem bizonyít jövőbeli előnyt.
+- A train/test ismételt válogatása idővel szintén túlillesztést okozhat; később walk-forward validációra és több független időszakra lesz szükség.
+
+A régebbi `demo_smoke_test.py --trade` továbbra is **külön, kifejezett demós megbízási próba**. A backtesthez ezt **ne futtasd**.
+
+Forrás: [Binance Spot Market Data Only](https://github.com/binance/binance-spot-api-docs/blob/master/faqs/market_data_only.md).
+
+---
+
 ## Technikai elemzés — új, csak olvasó mód
 
 A technikai elemző modul **nem használ API-kulcsot, nem helyez el megbízást, és nem módosítja a számládon lévő BTC-t**. A Binance demó piaci adataiból (lezárt gyertyákból) dolgozik.
