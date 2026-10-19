@@ -16,7 +16,7 @@ from .rules import STRATEGIES
 
 BAR_MS = 15 * 60 * 1000
 DAY_BARS = 96
-SAMPLE_DAYS = (14, 30, 45, 60, 90)
+SAMPLE_DAYS = (5, 7, 10, 14, 21, 30, 45, 60, 90)
 DISCOVERY_FRACTION = 0.75
 
 
@@ -37,38 +37,47 @@ def regime_at(window_start_ms, hour_closes_ms, hour_ema50, hour_ema200):
     return "sideways"
 
 
-def sample_windows(first, boundary, count, seed, lengths=SAMPLE_DAYS):
-    """Deterministic, bounded random periods, discovery-only.
+def sample_windows(first, boundary, count, seed, lengths=(5, 7, 10, 14, 21, 30, 45, 60, 90)):
+    """Reproducible, RANDOM and DISJOINT discovery windows.
 
-    Overlap is allowed, declared in reports; this is a robustness probe and
-    must NOT be mistaken for independent statistical samples.
+    Random durations plus random gaps spread samples across the entire
+    discovery period. We adapt allowed window length to the data budget:
+    24 independent 30-day windows simply do NOT fit within ~274 days.
+    The resulting windows are disjoint but the market is still autocorrelated.
     """
     if not 1 <= count <= 100:
-        raise ValueError("Use 1–100 random windows")
-    if not lengths or any(days < 3 for days in lengths):
-        raise ValueError("Invalid window durations")
-    longest = max(lengths) * DAY_BARS
-    if boundary - first <= longest + DAY_BARS:
-        raise ValueError("Insufficient discovery history for selected windows")
+        raise ValueError("Choose 1..100 sample windows")
+    if boundary <= first or not lengths or min(lengths) < 3:
+        raise ValueError("Invalid discovery range or window lengths")
+    days_available = (boundary - first) // DAY_BARS
+    # Reserve 20% of the discovery span as gaps, to avoid adjacent clones.
+    max_days = int(0.8 * days_available / count)
+    options = [int(d) for d in lengths if d <= max_days]
+    if not options:
+        raise ValueError("Not enough historical data for this many DISJOINT windows. Choose fewer windows or more days.")
     rng = random.Random(seed)
+    durations = [rng.choice(options) * DAY_BARS for _ in range(count)]
+    rng.shuffle(durations)
+    slack = boundary - first - sum(durations)
+    if slack < 0:
+        raise ValueError("Overallocated historical sample windows")
+    # Stars and bars: sample a random composition of slack across count+1 gaps.
+    # Uses at most count random integers, without allocating slack-sized arrays.
+    cuts = sorted(rng.sample(range(slack + count), count))
+    gaps = []
+    last_cut = -1
+    for cut in cuts:
+        gaps.append(cut - last_cut - 1)
+        last_cut = cut
+    gaps.append(slack + count - 1 - last_cut)
+    cursor = first + gaps[0]
     windows = []
-    seen = set()
-    attempts = 0
-    while len(windows) < count and attempts < count * 100:
-        attempts += 1
-        days = rng.choice(tuple(lengths))
-        bars = days * DAY_BARS
-        if boundary - first - bars < 0:
-            continue
-        # Choose from all 15-minute boundaries inside discovery segment.
-        begin = rng.randint(first, boundary - bars)
-        key = (begin, begin + bars)
-        if key not in seen:
-            windows.append((begin, begin + bars))
-            seen.add(key)
-    if len(windows) < count:
-        raise RuntimeError("Could not sample enough distinct windows")
-    return sorted(windows)
+    for i, width in enumerate(durations):
+        windows.append((cursor, cursor + width))
+        cursor += width + gaps[i + 1]
+    if cursor != boundary or len(windows) != count:
+        raise RuntimeError("Random-window allocation invariant failed")
+    return windows
 
 
 def overlapped_fraction(windows):
@@ -97,10 +106,10 @@ def _aggregate(rows):
     excess = [r["excess_vs_bh20_pct"] for r in rows]
     dd = [r["max_drawdown_pct"] for r in rows]
     trades = sum(r["closed_trades"] for r in rows)
-    # Non-overlapping samples would be preferable for a true significance test.
+    # Samples are disjoint, though prices and outcomes remain serially correlated.
     return {
         "windows": len(rows),
-        "completed_trades_across_windows_including_overlap": trades,
+        "completed_trades_across_windows": trades,
         "mean_return_pct": round(mean(returns), 4) if rows else None,
         "median_return_pct": round(median(returns), 4) if rows else None,
         "median_excess_vs_bh20_pct": round(median(excess), 4) if rows else None,
@@ -165,7 +174,7 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
                      for label, rows in by_regime[name].items()}
         # Conservatively disqualify no/too-few-trade or mostly inactive rules.
         # This is a heuristic screening score, not evidence of significance.
-        eligible = (agg["completed_trades_across_windows_including_overlap"] >= 12
+        eligible = (agg["completed_trades_across_windows"] >= max(10, n_windows // 2)
                     and agg["zero_trade_windows"] <= n_windows // 2)
         agg["screen_eligible"] = eligible
         agg["by_start_regime"] = breakdown
@@ -181,11 +190,11 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
     # A "promising" candidate needs positive median outperformance AND a
     # strict majority of random windows beating passive equal-allocation.
     promising = bool(selected and summary[selected]["median_excess_vs_bh20_pct"] > 0
-                     and summary[selected]["beat_bh20_windows_pct"] > 50)
+                     and summary[selected]["median_return_pct"] > 0\n                     and summary[selected]["beat_bh20_windows_pct"] > 50)
 
     report = {
         "symbol": symbol,
-        "experiment": "random discovery windows / optional chronological final holdout",
+        "experiment": "random nonoverlapping discovery windows / optional reserved chronology",
         "source": "Binance public spot historical klines",
         "seed": seed,
         "window_count": n_windows,
@@ -193,7 +202,7 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
         "discovery_end_utc": ms_utc(fast[boundary - 1].close_time_ms),
         "sealed_holdout_start_utc": ms_utc(fast[boundary].open_time_ms),
         "sealed_holdout_end_utc": ms_utc(fast[-1].close_time_ms),
-        "overlap_pct_of_unique_discovery_bars": overlapped_fraction(windows),
+        "overlap_pct_of_unique_discovery_bars": overlapped_fraction(windows),\n        "independent_windows_by_time": True,\n        "untouched_holdout_warning": "Recent 2026 data were exposed in earlier 180-day tests; historical holdout is NOT genuinely pristine. Use later forward demo trading for new out-of-sample evidence.",
         "cost_assumptions": {
             "capital_usdc": capital, "position_fraction": allocation,
             "fee_bps_each_side": fee_bps, "slippage_bps_each_side": slippage_bps,
@@ -206,10 +215,10 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
         "sampled_windows": samples,
         "holdout": None,
         "cautions": [
-            "Random windows overlap: trade counts and win frequencies are NOT independent observations.",
+            "Windows do not overlap, but returns may still be serially correlated and samples are NOT fully independent.",
             "Regime label uses only data at window start; a month-long window can change regime internally.",
             "A good random-window score can still be overfit after testing many strategies/seeds.",
-            "Do NOT tune based on sealed holdout; repeated validation invalidates it.",
+            "Prior experiments already exposed part of this recent historical holdout; only FUTURE forward testing can restore pristine unseen data.",
             "This tests one pair at a time, not a combined multi-asset portfolio.",
             "All fills are estimated next-candle open with fixed fee/slippage; no exchange execution guarantees."
         ],
