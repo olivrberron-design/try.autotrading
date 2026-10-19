@@ -1,45 +1,59 @@
-# AutoTrading — Binance Spot Demo API feasibility
+# AutoTrading — Binance Spot Demo research
 
-Ez a repository **kizárólag virtuális Binance Spot Demo kereskedési teszthez** készült. Az első lépés egy 25 USDC-s BTC/USDC piaci vétel és a kapott BTC visszaeladása.
+A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt már sikeresen kipróbáltunk. **A megvásárolt BTC-t nem adjuk el automatikusan.**
 
-## Biztonsági korlátok
+## Technikai elemzés — új, csak olvasó mód
 
-- Az API szerver címe a programban rögzített: `https://demo-api.binance.com`. Éles Binance API-n nem tud kereskedni.
-- Az alapértelmezett futás csak olvas és a Binance `/order/test` végpontját próbálja.
-- Valódi **virtuális** demómegbízás csak `--trade` és külön kézi megerősítés után történik.
-- API-kulcs nem kerül a GitHubra: helyi `.env` fájlban tároljuk.
-- Egy sikertelen vagy bizonytalan megbízást a script **nem ismétel automatikusan**; a folyamat állapota külön fájlban rögzül.
-- A demo kötés valódi piaci áraktól eltérő eredményt adhat, költség és spread miatt veszteséges is lehet.
+A technikai elemző modul **nem használ API-kulcsot, nem helyez el megbízást, és nem módosítja a számládon lévő BTC-t**. A Binance demó piaci adataiból (lezárt gyertyákból) dolgozik.
 
-## Gyors indítás Macen
+GitHub Desktopban: **Fetch origin**, majd **Pull origin**. A projektmappában Terminal:
 
-1. Töltsd le/klónozd a repositoryt a saját gépedre, és lépj a mappába.
-2. Másold a `.env.example` fájlt `.env` néven. Egy egyszerű szövegszerkesztővel illeszd be a **Demo API Key** és **Demo Secret Key** értékét. Csak helyben mentsd.
-3. Kapcsolat és teszt-megbízás (nincs vétel/eladás):
-   ```sh
-   python3 demo_smoke_test.py
-   ```
-4. Virtuális 25 USDC-s BTC/USDC vétel és utána eladás:
-   ```sh
-   python3 demo_smoke_test.py --trade
-   ```
-   A program külön megerősítést kér.
-5. Ha megszakadt valami, csak ellenőrizd a státuszt; ne indíts új megbízást:
-   ```sh
-   python3 demo_smoke_test.py --status
-   ```
+```sh
+python3 analyze.py
+```
 
-**Ne küldd el a kulcsokat chatben, és ne másold be GitHubra.** Az `.env` és a teszt állapotfájl is szerepel a `.gitignore`-ban. Ha már egyszer használtad a `--trade` módot, a teszt állapotfájlt szándékosan nem töröljük automatikusan: előbb egyeztesd a számla megbízástörténetével.
+Kizárólag BTC/USDC:
 
-## Tesztek (nem küldenek kereskedési megbízást)
+```sh
+python3 analyze.py --symbol BTCUSDC
+```
+
+Csak kiírás, helyi napló nélkül:
+
+```sh
+python3 analyze.py --no-log
+```
+
+A program BTC/USDC és ETH/USDC párokról lekér **15 perces és 1 órás** gyertyákat. EMA(20/50) keresztet, 1 órás EMA(50/200) trendet, RSI(14)-et, MACD(12/26/9)-et, ATR(14)-et és volumenfeltételt vizsgál. Az elemzést helyben a `data/signals.jsonl` fájlba naplózza, ez Gitből kizárt.
+
+Az `ENTRY_CANDIDATE`, `EXIT_CANDIDATE` és `HOLD` értékek **kutatási jelzések, nem megbízások vagy befektetési ajánlások**. Egy belépési jel sem jelent bizonyítottan nyereséges stratégiát. Ez az első, magyarázható baseline. Következő fejlesztések: backtest (fee/slippage), papírtrading, majd előre meghatározott risk engine és külön jóváhagyott, hosszú távú Demo végrehajtás.
+
+## Korábbi Binance Demo API smoke test
+
+A `demo_smoke_test.py` a különálló API-megvalósíthatósági próba, nem a technikai elemző. A `--trade` mód megbízást küld a **virtuális DEMO** számlára, ezért ne indítsd újra, ha már vásároltál! Az állapotot ellenőrizheted:
+
+```sh
+python3 demo_smoke_test.py --status
+```
+
+A `--status` nem helyez el megbízást. A virtuális BTC-t változatlanul hagyja.
+
+## Biztonság és hozzáférés
+
+- Mindkét modul csak a `https://demo-api.binance.com` címet használja.
+- Csak a smoke test igényel DEMO API-kulcsot, helyi `.env` fájlban.
+- A `.env`, az állapotfájl és a helyi adatnapló kizárt a Gitből; a kulcsokat soha ne küldd el chaten vagy commitban.
+- A piaci adatok és tesztpozíciók nem garantálják az éles kötési árakat, likviditást vagy stratégiateljesítményt.
+
+## Tesztek
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
 
+A tesztek nem küldenek megbízást, és nem kérnek API-kulcsot.
+
 ## Dokumentáció
 
 - [Binance Spot Demo](https://developers.binance.info/en/docs/products/spot/demo-mode/general-info)
 - [Binance Spot REST API](https://developers.binance.com/en/docs/products/spot/rest-api)
-
-Ez *feasibility proof*, nem kereskedési stratégia, nem AI-trader, és nem hoz létre éles pozíciókat.
