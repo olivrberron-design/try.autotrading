@@ -62,7 +62,7 @@ class TestBrowserDashboard(unittest.TestCase):
             html = page.read_text(encoding="utf-8")
             self.assertIn("Strategy Lab", html)
             self.assertIn('"symbol":"BTCUSDC"', html)
-            self.assertIn("random", html.lower())
+            self.assertIn("véletlenszerű", html.lower())
             self.assertNotIn("__PAYLOAD__", html)
             self.assertNotIn("BINANCE_DEMO_API_SECRET", html)
             self.assertNotIn("https://demo-api.binance.com/api/v3/order", html)
