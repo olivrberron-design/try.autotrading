@@ -59,7 +59,7 @@ def compute_signals(fast, hourly):
 def _validate_costs(capital, allocation, fee_bps, slippage_bps):
     if capital <= 0 or not (0 < allocation <= 1):
         raise ValueError("Capital must be positive and allocation in (0, 1]")
-    if not (0 <= fee_bps <= 100 or 0 <= slippage_bps <= 100):
+    if not (0 <= fee_bps <= 100 and 0 <= slippage_bps <= 100):
         raise ValueError("Fees/slippage must be 0–100 bps")
 
 
