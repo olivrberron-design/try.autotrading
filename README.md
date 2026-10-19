@@ -6,7 +6,7 @@ A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt má
 
 **[▶ Stratégiai tesztek indítása a GitHubon](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml)**
 
-Válaszd a **Run workflow** gombot, állítsd be a 365/540/730 napot, a BTC/ETH piacokat és a 12/24/36 véletlen időablakot, majd indítsd el. A GitHub szerverén fut, **nem kell Terminal vagy API-kulcs**, és nem ér hozzá a virtuális BTC-hez.
+Válaszd a **Run workflow** gombot, állítsd be a 365/540/730 napot, a BTC/ETH piacokat és a 4/8/12/24/36 véletlen időablakot, majd indítsd el. A GitHub szerverén fut, **nem kell Terminal vagy API-kulcs**, és nem ér hozzá a virtuális BTC-hez.
 
 A **Summary** oldal mutatja mind a 15 stratégiát, külön az **abszolút medián hozamot**, a benchmarkhoz képesti medián előnyt, a drawdownt, a kötéseket és a piaci rezsimeket. Az **Artifacts** szekcióból két külön csomag tölthető le:
 - `strategy-lab-dashboard-...`: egy `index.html`, amelyre duplán kattintva a Maceden a Chrome megnyitja az interaktív dashboardot. Van sorrendezhető rangsor, időszakonkénti grafikon, piaci rezsimek és kiválasztott stratégia részletei.
@@ -53,7 +53,7 @@ A végső cél nem a múlt legjobb paramétereinek hajszolása, hanem új, időb
 
 ---
 
-## Historikus backtesting (BTC és ETH, 3 stratégia)
+## Historikus backtesting (korábbi parancssoros mód, jelenleg 15 stratégiával)
 
 A backtest **csak adatot olvas** a Binance hivatalos nyilvános Spot Market Data API-jából: `https://data-api.binance.vision`. Nem használ `.env` kulcsokat, nem küld kereskedési megbízást, és **nem nyúl a demós BTC-hez**. Az összes kötés helyi matematikai szimuláció.
 
@@ -85,7 +85,7 @@ python3 backtest.py --days 180 --fee-bps 10 --slippage-bps 5 --allocation 0.2
 ```
 
 **A modellezési feltételek és korlátok:**
-- Három kutatási stratégia: korábbi **EMA+RSI+MACD+volumen** baseline, momentum, RSI mean-reversion.
+- 15 kutatási stratégia: lásd [STRATEGY_CATALOG.md](STRATEGY_CATALOG.md).
 - Minden stratégia **külön**, 5000 USDC indulótőkével szimulál; nincs valódi tőkeáttétel, short vagy több párból összerakott portfólió.
 - Alapesetben egyszerre a szabad cash **20%-át** teszi virtuális pozícióba; az egyes stratégiák **nem kezelik a tényleges Binance Demo-egyenleget**.
 - Jelzés kizárólag **lezárt 15m gyertyából** és addig lezárult 1h adatokból; végrehajtás a **következő 15m gyertya nyitóján**.
@@ -126,7 +126,7 @@ python3 analyze.py --no-log
 
 A program BTC/USDC és ETH/USDC párokról lekér **15 perces és 1 órás** gyertyákat. EMA(20/50) keresztet, 1 órás EMA(50/200) trendet, RSI(14)-et, MACD(12/26/9)-et, ATR(14)-et és volumenfeltételt vizsgál. Az elemzést helyben a `data/signals.jsonl` fájlba naplózza, ez Gitből kizárt.
 
-Az `ENTRY_CANDIDATE`, `EXIT_CANDIDATE` és `HOLD` értékek **kutatási jelzések, nem megbízások vagy befektetési ajánlások**. Egy belépési jel sem jelent bizonyítottan nyereséges stratégiát. Ez az első, magyarázható baseline. Következő fejlesztések: backtest (fee/slippage), papírtrading, majd előre meghatározott risk engine és külön jóváhagyott, hosszú távú Demo végrehajtás.
+Az `ENTRY_CANDIDATE`, `EXIT_CANDIDATE` és `HOLD` értékek **kutatási jelzések, nem megbízások vagy befektetési ajánlások**. Egy belépési jel sem jelent bizonyítottan nyereséges stratégiát. Ez az első, magyarázható baseline. Következő fejlesztések: szigorúbb walk-forward elemzés, papírtrading, majd előre meghatározott risk engine és külön jóváhagyott, hosszú távú Demo végrehajtás.
 
 ## Korábbi Binance Demo API smoke test
 
