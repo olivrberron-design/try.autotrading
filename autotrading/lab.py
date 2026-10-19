@@ -190,7 +190,8 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
     # A "promising" candidate needs positive median outperformance AND a
     # strict majority of random windows beating passive equal-allocation.
     promising = bool(selected and summary[selected]["median_excess_vs_bh20_pct"] > 0
-                     and summary[selected]["median_return_pct"] > 0\n                     and summary[selected]["beat_bh20_windows_pct"] > 50)
+                     and summary[selected]["median_return_pct"] > 0
+                     and summary[selected]["beat_bh20_windows_pct"] > 50)
 
     report = {
         "symbol": symbol,
@@ -202,7 +203,9 @@ def research(symbol, fast, hourly, *, trading_start_ms, n_windows=24,
         "discovery_end_utc": ms_utc(fast[boundary - 1].close_time_ms),
         "sealed_holdout_start_utc": ms_utc(fast[boundary].open_time_ms),
         "sealed_holdout_end_utc": ms_utc(fast[-1].close_time_ms),
-        "overlap_pct_of_unique_discovery_bars": overlapped_fraction(windows),\n        "independent_windows_by_time": True,\n        "untouched_holdout_warning": "Recent 2026 data were exposed in earlier 180-day tests; historical holdout is NOT genuinely pristine. Use later forward demo trading for new out-of-sample evidence.",
+        "overlap_pct_of_unique_discovery_bars": overlapped_fraction(windows),
+        "independent_windows_by_time": True,
+        "untouched_holdout_warning": "Recent 2026 data were exposed in earlier 180-day tests; historical holdout is NOT genuinely pristine. Use later forward demo trading for new out-of-sample evidence.",
         "cost_assumptions": {
             "capital_usdc": capital, "position_fraction": allocation,
             "fee_bps_each_side": fee_bps, "slippage_bps_each_side": slippage_bps,
