@@ -4,6 +4,7 @@ import unittest
 
 from autotrading.backtest import backtest, buy_hold, compute_signals, simulate
 from autotrading.history import fetch_range, time_range, validate_candles
+from autotrading.rules import STRATEGIES
 from autotrading.market import Candle
 
 
@@ -71,7 +72,7 @@ class TestBacktest(unittest.TestCase):
         candles = [bar(i, 100) for i in range(1800)]
         hourly = [bar(i, 100, 3_600_000) for i in range(450)]
         result = backtest(candles, hourly, start_ms=candles[900].open_time_ms)
-        self.assertEqual(set(result["strategies"]), {"baseline", "momentum", "mean_reversion"})
+        self.assertEqual(set(result["strategies"]), set(STRATEGIES))
         for strat in result["strategies"].values():
             self.assertEqual(strat["training"]["return_pct"], 0.0)
             self.assertEqual(strat["holdout"]["return_pct"], 0.0)
