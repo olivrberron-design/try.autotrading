@@ -3,3 +3,4 @@
 __pycache__/
 .demo_smoke_state.json
 .demo_smoke_state.json.tmp
+data/
