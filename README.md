@@ -2,6 +2,34 @@
 
 A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt már sikeresen kipróbáltunk. **A megvásárolt BTC-t nem adjuk el automatikusan.**
 
+## 🧪 Strategy Lab: böngészőből indítható, nincs Terminal
+
+👉 **[Strategy Lab elindítása a GitHubon](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml)**
+
+1. Nyisd meg a fenti linket (GitHub belépés szükséges).
+2. Jobb oldalt kattints a **Run workflow** gombra.
+3. Hagyd az alapbeállításokat: `discover`, `365` nap, `both` piac, `24` véletlenszerű időszak/piac, `42` reprodukálható seed.
+4. Kattints a zöld **Run workflow** gombra. A GitHub szerverén fut, nem a Maceden; terminálra és API-kulcsra nincs szükség.
+5. A megjelenő futtatásra kattintva a **Summary** oldalon látod a stratégiák rangsorát és a különböző piaci rezsimek szerinti eredményeket. Az oldal alján az **Artifacts** részben elérhetők a részletes CSV/JSON jelentések.
+
+**Az alapértelmezett `discover` módban a legutolsó 25% időszakot szándékosan NEM nézzük meg**, így megmarad egy kronológiai végső teszt. A `validate` választást csak egyszer, a kiválasztott stratégia és paraméterek rögzítése után használd; ez már feltárja a tesztidőszakot.
+
+**Régebbi időszakokhoz** válaszd az `540` (másfél év) vagy `730` (két év) napot. A minták a történelmi szakaszból véletlenszerűen indulnak, nem csak a mostani napból visszafelé készülnek. A tesztablakok hossza vegyesen 14, 30, 45, 60 vagy 90 nap. Azonos seed esetén azonos mintavétel készül ugyanazon az adatkészleten, hogy reprodukálható legyen a vizsgálat.
+
+**Hetente vasárnap automatikusan lefut** az alapértelmezett, csak kutatási módú teszt (GitHub Actions ütemezéssel). Az előző futtatásokat az **Actions** lapon lehet visszanézni. A heti indulás GitHub-szolgáltatási feltételektől és Actions-beállításoktól függ; időnként késhet, inaktív nyilvános repóban leállhat.
+
+### Mit mér a Strategy Lab?
+
+- A három **jelenleg implementált** stratégia (baseline, momentum, mean reversion) teljesítményét egyenként, azonos random ablakokban.
+- Medián többlethozam az azonos 20%-os kitettségű buy-and-holdhoz képest; hány ablakban verte a benchmarkot; legrosszabb hozam, maximális drawdown.
+- A vizsgált időszak indulásakor *már ismert* piaci környezet: bull, bear vagy sideways az 1 órás EMA50/EMA200 alapján. Ez fontos alap az AI-alapú stratégia-kiválasztáshoz, de maga **még nem AI**.
+- A pozitív medián benchmark-felülteljesítés és több mint 50%-os ablak-győzelem minimális kutatási szűrő, **nem igazol profitábilis stratégiát**.
+- A véletlen időszakok **átfedhetnek**, így az eredmények nem független megfigyelések. Az átfedést a jelentés mutatja; ne számold az átfedő trade-eket külön bizonyítéknak.
+
+A jelenlegi stratégia-implementációk változatlan paraméterűek: a következő fejlesztés a szélesebb, előre regisztrált stratégia-katalógus és a valóban időrendben végzett walk-forward validáció lesz. A webes futtatás nem igényel helyi `.env` fájlt. **A demós BTC-hez nem nyúl.**
+
+---
+
 ## Historikus backtesting (BTC és ETH, 3 stratégia)
 
 A backtest **csak adatot olvas** a Binance hivatalos nyilvános Spot Market Data API-jából: `https://data-api.binance.vision`. Nem használ `.env` kulcsokat, nem küld kereskedési megbízást, és **nem nyúl a demós BTC-hez**. Az összes kötés helyi matematikai szimuláció.
