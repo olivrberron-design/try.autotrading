@@ -83,7 +83,7 @@ jobs:
 
       - name: Offline unit tests (no keys/orders)
         run: |
-          python -m compileall -q autotrading tests strategy_lab.py analyze.py backtest.py
+          python -m compileall -q autotrading tests strategy_lab.py build_dashboard.py analyze.py backtest.py
           python -m unittest discover -s tests -v
 
       - name: Run random-window Strategy Lab
@@ -95,6 +95,17 @@ jobs:
             --windows "$LAB_WINDOWS" \
             --seed "$LAB_SEED"
 
+      - name: Build interactive offline HTML dashboard
+        run: python build_dashboard.py
+
+      - name: Downloadable browser dashboard
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategy-lab-dashboard-${{ github.run_id }}
+          path: data/site/index.html
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Downloadable detailed report and samples
         if: always()
         uses: actions/upload-artifact@v4
@@ -103,3 +114,32 @@ jobs:
           path: data/lab/
           if-no-files-found: warn
           retention-days: 30
+
+  deploy-pages:
+    name: Publish browser dashboard to GitHub Pages (if enabled)
+    needs: research
+    # This job is skipped until GitHub Settings > Pages > source: GitHub Actions.
+    if: ${{ github.event.repository.has_pages }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download report HTML from research job
+        uses: actions/download-artifact@v4
+        with:
+          name: strategy-lab-dashboard-${{ github.run_id }}
+          path: public
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Prepare Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Deploy interactive dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4
