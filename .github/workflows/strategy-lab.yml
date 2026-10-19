@@ -1,0 +1,105 @@
+name: Strategy Lab – webes futtatás
+
+run-name: Strategy Lab / ${{ inputs.mode || 'discover' }} / ${{ inputs.days || '365' }} nap / ${{ inputs.symbol || 'both' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "discover = random történelmi tesztek; validate = FELTÁRJA a végső holdout időszakot"
+        required: true
+        default: discover
+        type: choice
+        options:
+          - discover
+          - validate
+      days:
+        description: "Mennyi múltbeli adat (nap)?"
+        required: true
+        default: '365'
+        type: choice
+        options:
+          - '365'
+          - '540'
+          - '730'
+      symbol:
+        description: "Vizsgált piac"
+        required: true
+        default: both
+        type: choice
+        options:
+          - both
+          - BTCUSDC
+          - ETHUSDC
+      windows:
+        description: "Véletlenszerű időablakok száma / piac"
+        required: true
+        default: '24'
+        type: choice
+        options:
+          - '12'
+          - '24'
+          - '36'
+      seed:
+        description: "Reprodukálható véletlen mintavétel"
+        required: true
+        default: '42'
+        type: choice
+        options:
+          - '42'
+          - '123'
+          - '2026'
+
+  # Weekly default discovery runs, no credentials, no trading; set to Sunday UTC.
+  schedule:
+    - cron: '15 6 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: strategy-lab
+  cancel-in-progress: false
+
+jobs:
+  research:
+    name: Random-window backtest, read-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LAB_MODE: ${{ inputs.mode || 'discover' }}
+      LAB_DAYS: ${{ inputs.days || '365' }}
+      LAB_SYMBOL: ${{ inputs.symbol || 'both' }}
+      LAB_WINDOWS: ${{ inputs.windows || '24' }}
+      LAB_SEED: ${{ inputs.seed || '42' }}
+    steps:
+      - name: Get strategy code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Offline unit tests (no keys/orders)
+        run: |
+          python -m compileall -q autotrading tests strategy_lab.py analyze.py backtest.py
+          python -m unittest discover -s tests -v
+
+      - name: Run random-window Strategy Lab
+        run: |
+          python strategy_lab.py \
+            --mode "$LAB_MODE" \
+            --days "$LAB_DAYS" \
+            --symbol "$LAB_SYMBOL" \
+            --windows "$LAB_WINDOWS" \
+            --seed "$LAB_SEED"
+
+      - name: Downloadable detailed report and samples
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strategy-lab-${{ github.run_id }}
+          path: data/lab/
+          if-no-files-found: warn
+          retention-days: 30
