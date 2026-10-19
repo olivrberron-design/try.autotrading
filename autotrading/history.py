@@ -82,7 +82,7 @@ def fetch_range(symbol, interval, start_ms, end_ms, requester=None):
         if last_open < cursor:
             raise RuntimeError("Kline pagination failed to advance")
         cursor = last_open + step
-        if len(rows) > 45_000:
+        if len(rows) > 90_000:
             raise RuntimeError("Historical download exceeded safety bound")
         if cursor <= end_ms:
             time.sleep(0.08)
