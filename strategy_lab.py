@@ -37,19 +37,19 @@ def table(report):
               f"Discovery: {report['discovery_start_utc']} → {report['discovery_end_utc']}; "
               f"sealed future holdout: {report['sealed_holdout_start_utc']} → {report['sealed_holdout_end_utc']}.",
               "",
-              "| Strategy | Median excess vs BH20 | Beat BH20 | Worst window | Max DD | Trades* | 0-trade windows | Screen |",
-              "|---|---:|---:|---:|---:|---:|---:|---|"]
+              "| Strategy | Median absolute return | Median excess vs BH20 | Beat BH20 | Worst window | Max DD | Trades | 0-trade windows | Screen |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|---|"]
     for name, value in report["strategies"].items():
-        lines.append(f"| {name} | {percent(value['median_excess_vs_bh20_pct'])} "
+        lines.append(f"| {name} | {percent(value['median_return_pct'])} | {percent(value['median_excess_vs_bh20_pct'])} "
                      f"| {percent(value['beat_bh20_windows_pct'])} "
                      f"| {percent(value['worst_window_return_pct'])} "
                      f"| {percent(value['max_window_drawdown_pct'])} "
-                     f"| {value['completed_trades_across_windows_including_overlap']} "
+                     f"| {value['completed_trades_across_windows']} "
                      f"| {value['zero_trade_windows']} "
                      f"| {'eligible' if value['screen_eligible'] else 'insufficient activity'} |")
     lines += ["", f"**Discovery-selected strategy:** `{report['selected_by_discovery_only'] or 'none'}` "
               f"| **passes minimal screening:** `{report['passes_basic_discovery_screen']}`.",
-              f"Random-window overlap: **{report['overlap_pct_of_unique_discovery_bars']}%** of covered 15m bars belong to multiple windows.",
+              f"Overlapping sampled bars: **{report['overlap_pct_of_unique_discovery_bars']}%** (designed to be 0%).",
               "",
               "<details><summary>Performance by regime known at each window START (no future data)</summary>",
               "",
@@ -73,7 +73,7 @@ def table(report):
         else:
             lines += ["**Final holdout exposed: no discovery candidate qualified for evaluation.**", ""]
     else:
-        lines += ["🔒 **Final chronological holdout NOT evaluated.** "
+        lines += ["🔒 **Final chronological holdout NOT evaluated.** Some recent dates were already exposed by earlier experiments; this is NOT pristine. "
                   "Only click validation when strategy selection and parameters are frozen.", ""]
     return "\n".join(lines)
 
@@ -143,13 +143,13 @@ def main():
         "### How to interpret", "",
         "* BH20 = equal 20% allocation buy-and-hold after the same estimated fees and slippage.",
         "* Fee assumption: 0.10% each side. Slippage: 0.05% each side.",
-        "* Trades marked with * are counted across overlapping windows; they are **not** independent.",
-        "* Random windows are sampled ONLY in the earlier discovery era (75%). "
+        "* Windows are disjoint; market movements may still be correlated and trade observations are not statistically independent.",
+        "* Disjoint random windows are sampled ONLY in the earlier discovery era (75%). "
         "The final 25% is chronological and excluded unless mode=validate.",
         "* These strategies and parameters are research hypotheses, not a profitable trading system.",
         "* Rankings and regime groups are descriptive. Classifying a regime at the start "
         "does not imply the same regime persisted for the entire window.",
-        "* Evaluating many seeds/strategies increases data snooping; retain an untouched final period.",
+        "* Earlier 2026 research already exposed some reserved dates; a pristine holdout requires future forward DEMO data.",
         "", "**Detailed JSON/CSV results:** download the artifact at the bottom of this GitHub Actions run.",
         "",
     ]
