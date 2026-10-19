@@ -6,6 +6,8 @@ from autotrading.lab import (
     DAY_BARS, overlapped_fraction, regime_at, research, sample_windows,
 )
 from autotrading.market import Candle
+from autotrading.catalog import CATALOG
+from autotrading.rules import STRATEGIES
 from strategy_lab import range_for_days, table
 
 BAR = 900_000
@@ -27,10 +29,16 @@ class TestRandomWindows(unittest.TestCase):
         b = sample_windows(first, boundary, 12, seed=123)
         self.assertEqual(a, b)
         self.assertEqual(len(a), 12)
+        self.assertTrue(all(a[i][1] <= a[i+1][0] for i in range(len(a)-1)))
+        self.assertEqual(overlapped_fraction(a), 0)
         self.assertTrue(all(first <= start < stop <= boundary
                             for start, stop in a))
         self.assertTrue(all((stop - start) % DAY_BARS == 0
                             for start, stop in a))
+
+    def test_fifteen_distinct_strategies(self):
+        self.assertEqual(len(CATALOG), 15)
+        self.assertEqual(set(CATALOG), set(STRATEGIES))
 
     def test_invalid_windows_rejected(self):
         with self.assertRaises(ValueError):
@@ -69,6 +77,8 @@ class TestRandomWindows(unittest.TestCase):
         self.assertIsNone(report["holdout"])
         self.assertIsNone(report["selected_by_discovery_only"])
         self.assertEqual(len(report["sampled_windows"]), 4)
+        self.assertEqual(report["overlap_pct_of_unique_discovery_bars"], 0.0)
+        self.assertEqual(len(report["strategies"]), 15)
         self.assertTrue(all(r["start_regime_1h_ema"] == "sideways"
                             for r in report["sampled_windows"]))
         self.assertIn("Final chronological holdout NOT evaluated", table(report))
