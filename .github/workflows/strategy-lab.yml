@@ -37,6 +37,8 @@ on:
         default: '24'
         type: choice
         options:
+          - '4'
+          - '8'
           - '12'
           - '24'
           - '36'
