@@ -103,7 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description="Read-only Strategy Lab (historical data, zero orders)")
     parser.add_argument("--days", type=int, choices=(365, 540, 730), default=365)
     parser.add_argument("--symbol", choices=("BTCUSDC", "ETHUSDC", "both"), default="both")
-    parser.add_argument("--windows", type=int, choices=(12, 24, 36), default=24)
+    parser.add_argument("--windows", type=int, choices=(4, 8, 12, 24, 36), default=24)
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible windows")
     parser.add_argument("--mode", choices=("discover", "validate"), default="discover",
                         help="validate EXPOSES the chronological holdout!")
