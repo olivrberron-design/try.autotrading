@@ -2,31 +2,54 @@
 
 A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt már sikeresen kipróbáltunk. **A megvásárolt BTC-t nem adjuk el automatikusan.**
 
-## 🧪 Strategy Lab: böngészőből indítható, nincs Terminal
+## Strategy Lab 2.0 — egy kattintással, terminál nélkül
 
-👉 **[Strategy Lab elindítása a GitHubon](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml)**
+**[▶ Stratégiai tesztek indítása a GitHubon](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml)**
 
-1. Nyisd meg a fenti linket (GitHub belépés szükséges).
-2. Jobb oldalt kattints a **Run workflow** gombra.
-3. Hagyd az alapbeállításokat: `discover`, `365` nap, `both` piac, `24` véletlenszerű időszak/piac, `42` reprodukálható seed.
-4. Kattints a zöld **Run workflow** gombra. A GitHub szerverén fut, nem a Maceden; terminálra és API-kulcsra nincs szükség.
-5. A megjelenő futtatásra kattintva a **Summary** oldalon látod a stratégiák rangsorát és a különböző piaci rezsimek szerinti eredményeket. Az oldal alján az **Artifacts** részben elérhetők a részletes CSV/JSON jelentések.
+Válaszd a **Run workflow** gombot, állítsd be a 365/540/730 napot, a BTC/ETH piacokat és a 12/24/36 véletlen időablakot, majd indítsd el. A GitHub szerverén fut, **nem kell Terminal vagy API-kulcs**, és nem ér hozzá a virtuális BTC-hez.
 
-**Az alapértelmezett `discover` módban a legutolsó 25% időszakot szándékosan NEM nézzük meg**, így megmarad egy kronológiai végső teszt. A `validate` választást csak egyszer, a kiválasztott stratégia és paraméterek rögzítése után használd; ez már feltárja a tesztidőszakot.
+A **Summary** oldal mutatja mind a 15 stratégiát, külön az **abszolút medián hozamot**, a benchmarkhoz képesti medián előnyt, a drawdownt, a kötéseket és a piaci rezsimeket. Az **Artifacts** szekcióból két külön csomag tölthető le:
+- `strategy-lab-dashboard-...`: egy `index.html`, amelyre duplán kattintva a Maceden a Chrome megnyitja az interaktív dashboardot. Van sorrendezhető rangsor, időszakonkénti grafikon, piaci rezsimek és kiválasztott stratégia részletei.
+- `strategy-lab-...`: CSV és JSON fájlok a részletes kutatási eredményekhez.
 
-**Régebbi időszakokhoz** válaszd az `540` (másfél év) vagy `730` (két év) napot. A minták a történelmi szakaszból véletlenszerűen indulnak, nem csak a mostani napból visszafelé készülnek. A tesztablakok hossza vegyesen 14, 30, 45, 60 vagy 90 nap. Azonos seed esetén azonos mintavétel készül ugyanazon az adatkészleten, hogy reprodukálható legyen a vizsgálat.
+### Opcionális állandó weboldal — GitHub Pages
 
-**Hetente vasárnap automatikusan lefut** az alapértelmezett, csak kutatási módú teszt (GitHub Actions ütemezéssel). Az előző futtatásokat az **Actions** lapon lehet visszanézni. A heti indulás GitHub-szolgáltatási feltételektől és Actions-beállításoktól függ; időnként késhet, inaktív nyilvános repóban leállhat.
+Ha minden futás után egy állandó webcímen szeretnéd látni a legutolsó dashboardot, nyisd meg a GitHubon:
+**Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
-### Mit mér a Strategy Lab?
+Ezzel engedélyezed, hogy egy sikeres Strategy Lab-futtatás után a workflow automatikusan frissítse a **[Strategy Lab dashboard weboldalt](https://olivrberron-design.github.io/try.autotrading/)**. A beállítás előtt a link még nem biztos, hogy működik; GitHub Actions-ből az offline HTML mindenképpen letölthető. Ez **publikus oldal** egy publikus repóhoz, de csak historikus kutatási eredményeket tartalmaz, semmilyen API-kulcsot vagy számlaadatot nem.
 
-- A három **jelenleg implementált** stratégia (baseline, momentum, mean reversion) teljesítményét egyenként, azonos random ablakokban.
-- Medián többlethozam az azonos 20%-os kitettségű buy-and-holdhoz képest; hány ablakban verte a benchmarkot; legrosszabb hozam, maximális drawdown.
-- A vizsgált időszak indulásakor *már ismert* piaci környezet: bull, bear vagy sideways az 1 órás EMA50/EMA200 alapján. Ez fontos alap az AI-alapú stratégia-kiválasztáshoz, de maga **még nem AI**.
-- A pozitív medián benchmark-felülteljesítés és több mint 50%-os ablak-győzelem minimális kutatási szűrő, **nem igazol profitábilis stratégiát**.
-- A véletlen időszakok **átfedhetnek**, így az eredmények nem független megfigyelések. Az átfedést a jelentés mutatja; ne számold az átfedő trade-eket külön bizonyítéknak.
+### Milyen 15 stratégiát tesztel?
 
-A jelenlegi stratégia-implementációk változatlan paraméterűek: a következő fejlesztés a szélesebb, előre regisztrált stratégia-katalógus és a valóban időrendben végzett walk-forward validáció lesz. A webes futtatás nem igényel helyi `.env` fájlt. **A demós BTC-hez nem nyúl.**
+1. Baseline (EMA + RSI + MACD + volume)
+2. RSI momentum + volume
+3. RSI mean reversion
+4. EMA pullback
+5. Donchian breakout 20/10
+6. Donchian breakout 55/20
+7. Bollinger lower-band reversal
+8. Bollinger upper-band breakout
+9. MACD crossover
+10. RSI strength cross
+11. RSI(2) oversold recovery
+12. Triple EMA alignment
+13. 20-bar rate-of-change momentum
+14. EMA + ATR channel breakout
+15. Stochastic rebound
+
+A szabályok a `autotrading/catalog.py` fájlban vannak dokumentálva. Ezek **saját tesztelhető implementációk közismert módszercsaládokból**, nem másolt, hitelesített nyereségreceptjei konkrét tradereknek.
+
+### Miben szigorúbb a 2.0?
+
+- A mintavételezett időablakok **nem fedik egymást**, de a hozamok ettől még lehetnek korreláltak. A 0% átfedést program és tesztkód ellenőrzi.
+- **Minden stratégia ugyanazokat** a véletlenszerű szakaszokat kapja, azonos fee/slippage feltételekkel.
+- Egyéves adaton 36 db különálló 30 napos teszt **nem fér el**. A rendszer automatikusan rövidebb (például 5/7/10/14 napos) tesztablakokat használ; másfél-két évnyi adaton hosszabb szakaszok is választhatók. Ha nem fér bele a vizsgálat, a rendszer hibával leáll, nem hamisítja a függetlenséget.
+- A `discover` mód csak a múltbeli adatok első 75%-án kísérletezik. A jelenlegi 25%-os „fenntartott” időszak **nem tekinthető teljesen érintetlennek**, mert a korábbi, 2026-ig futó tesztek egy része már felfedte. A `validate` mód csak külön kérésre értékeli, és az eredményt utólag nem használhatjuk a szabályok hangolására. Valóban friss bizonyítékhoz **jövőbeli felügyelet nélküli demós forward teszt** kell.
+- A stratégia csak előzetes kutatási szűrőn lép át, ha van elég kötése, pozitív az abszolút medián hozama, pozitív a benchmarkhoz képesti medián előnye, és az ablakok több mint felében felülmúlja a benchmarkot. **Ez önmagában nem profitgarancia.**
+- Piaci rezsim: `bull`/`bear`/`sideways`, kizárólag az ablak elején **már lezárt** 1 órás adatok alapján. A rezsim az ablak során változhat; AI-modell még nincs.
+- A kutatási futtatás a GitHubon alapértelmezés szerint **vasárnaponként automatikusan is elindul**, amennyiben a GitHub Actions engedélyezi.
+
+A végső cél nem a múlt legjobb paramétereinek hajszolása, hanem új, időben később felvett piaci adatokon fennmaradó, költségek után is mérhető előny keresése.
 
 ---
 
