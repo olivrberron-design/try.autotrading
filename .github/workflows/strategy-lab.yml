@@ -51,6 +51,31 @@ on:
           - '42'
           - '123'
           - '2026'
+      fee_bps:
+        description: "Engine3: díj oldalanként, bps"
+        type: choice
+        default: '10'
+        options: ['5', '10', '20']
+      slippage_bps:
+        description: "Engine3: csúszás oldalanként, bps"
+        type: choice
+        default: '5'
+        options: ['2', '5', '10']
+      spread_bps:
+        description: "Engine3: teljes spread, bps"
+        type: choice
+        default: '2'
+        options: ['1', '2', '5']
+      risk_bps:
+        description: "Engine3: tervezett max. kockázat/kötés (bps tőkéből)"
+        type: choice
+        default: '50'
+        options: ['25', '50', '100']
+      latency_bars:
+        description: "Engine3: végrehajtási késleltetés (óra)"
+        type: choice
+        default: '1'
+        options: ['1', '2', '3']
 
   # Run automatically after new research code is pushed; report-only commits do not retrigger.
   push:
@@ -89,6 +114,11 @@ jobs:
       LAB_SYMBOL: ${{ inputs.symbol || 'both' }}
       LAB_WINDOWS: ${{ inputs.windows || '24' }}
       LAB_SEED: ${{ inputs.seed || '42' }}
+      LAB_FEE_BPS: ${{ inputs.fee_bps || '10' }}
+      LAB_SLIPPAGE_BPS: ${{ inputs.slippage_bps || '5' }}
+      LAB_SPREAD_BPS: ${{ inputs.spread_bps || '2' }}
+      LAB_RISK_BPS: ${{ inputs.risk_bps || '50' }}
+      LAB_LATENCY_BARS: ${{ inputs.latency_bars || '1' }}
     steps:
       - name: Get strategy code
         uses: actions/checkout@v4
@@ -119,7 +149,12 @@ jobs:
             --days "$LAB_DAYS" \
             --symbol "$LAB_SYMBOL" \
             --windows "$LAB_WINDOWS" \
-            --seed "$LAB_SEED"
+            --seed "$LAB_SEED" \
+            --fee-bps "$LAB_FEE_BPS" \
+            --slippage-bps "$LAB_SLIPPAGE_BPS" \
+            --spread-bps "$LAB_SPREAD_BPS" \
+            --risk-bps "$LAB_RISK_BPS" \
+            --latency-bars "$LAB_LATENCY_BARS"
 
       - name: Publish public-safe report for Lovable app
         if: ${{ env.LAB_MODE == 'discover' && github.ref == 'refs/heads/main' }}
