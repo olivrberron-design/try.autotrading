@@ -116,8 +116,30 @@ def audit_fills(candles, signal_set, result, cfg):
         assert e["allocation_pct_initial_capital"] >= 0
         assert e["notional_usdc"] > 0
         assert e["notional_usdc"] <= cfg.capital_usdc * 1.05, "Spot leverage prohibited"
+    bars_by_close = {bar.close_time_ms: bar for bar in candles}
     for t in result["trades"]:
         assert t["entry_utc"] < t["exit_utc"], "Trade exits before entry"
+        from datetime import datetime
+        reason = t["reason"]
+        if reason == "signal":
+            stamp = t.get("exit_signal_utc")
+            assert stamp is not None, "Signal exit lacks decision timestamp"
+            signal_ms = round(datetime.fromisoformat(stamp).timestamp()*1000)
+            exit_ms = round(datetime.fromisoformat(t["exit_utc"]).timestamp()*1000)
+            assert actions_at[signal_ms] == "EXIT_CANDIDATE", "Exit without eligible exit signal"
+            assert exit_ms > signal_ms, "Exit executed before signal close"
+        elif reason in ("stop_or_trailing_stop", "take_profit"):
+            exit_ms = round(datetime.fromisoformat(t["exit_utc"]).timestamp()*1000)
+            bar = bars_by_close[exit_ms]
+            if reason == "stop_or_trailing_stop":
+                assert bar.low <= t["stop_level_at_exit"] + 1e-7, "Stop execution without hourly low breach"
+                assert t["exit_price"] <= min(bar.open, t["stop_level_at_exit"]) + 1e-7
+            else:
+                assert bar.high >= t["target_level_at_exit"] - 1e-7, "Take-profit level never reached"
+                assert t["exit_price"] <= t["target_level_at_exit"] + 1e-7
+        else:
+            assert reason == "circuit_breaker", "Undocumented exit reason"
+
         expected = t["exit_notional_usdc"] - t["exit_fee_usdc"] - t["entry_notional_usdc"] - t["entry_fee_usdc"]
         assert isclose(expected, t["pnl_usdc"], abs_tol=0.002), "Trade PnL accounting mismatch"
         assert t["entry_allocation_pct_equity"] <= cfg.allocation*100 + 0.01, "Position allocation cap exceeded"
