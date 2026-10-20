@@ -136,11 +136,18 @@ jobs:
           python -m compileall -q autotrading tests strategy_lab.py advanced_lab.py build_dashboard.py publish_reports.py publish_advanced.py analyze.py backtest.py
           python -m unittest discover -s tests -v
 
-      - name: Run random-window Strategy Lab
+      - name: Run random-window Strategy Lab (legacy 15m, max 730d)
         run: |
+          # Legacy 15m engine and its historical 90k-bar limit are validated
+          # only up to 730 days. Longer spans apply to advanced Engine3.
+          LEGACY_DAYS="$LAB_DAYS"
+          if [ "$LEGACY_DAYS" -gt 730 ]; then
+            LEGACY_DAYS=730
+            echo "::notice::Legacy 15-strategy study capped at 730d; Engine3 runs requested $LAB_DAYS days"
+          fi
           python strategy_lab.py \
             --mode "$LAB_MODE" \
-            --days "$LAB_DAYS" \
+            --days "$LEGACY_DAYS" \
             --symbol "$LAB_SYMBOL" \
             --windows "$LAB_WINDOWS" \
             --seed "$LAB_SEED"
