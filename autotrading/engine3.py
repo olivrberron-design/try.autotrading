@@ -97,24 +97,45 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
     exposure_bars = 0
     blocked_orders = 0
     circuit_breaker = False
+    entry_notional_total = 0.0
+    exit_notional_total = 0.0
+    peak_position_notional = 0.0
+    peak_allocation_equity_pct = 0.0
+    gross_exposure_sum_pct = 0.0
+    entries_count = 0
+    entry_allocations = []
+    fill_events = []
+    entry_details = {}
 
     def close_position(px, when_ms, reason, reference):
         nonlocal cash, qty, cost, entry_px, entry_ms, fee_paid
         nonlocal turnover, impact_paid, stop_px, target_px, distance
+        nonlocal exit_notional_total, entry_details
         net = qty * px * (1 - fee)
         exit_fee = qty * px * fee
         fee_paid += exit_fee
         impact_paid += max(0, reference - px) * qty
         turnover += qty * px
+        exit_notional_total += qty * px
         pnl = net - cost
         cash += net
         closed.append({
             "entry_utc": utc(entry_ms), "exit_utc": utc(when_ms),
             "entry_price": round(entry_px, 8), "exit_price": round(px, 8),
             "quantity": round(qty, 10), "reason": reason,
+            "entry_notional_usdc": round(cost - (cost * fee / (1 + fee)), 5),
+            "exit_notional_usdc": round(qty * px, 5),
+            "entry_fee_usdc": round(cost * fee / (1 + fee), 5),
+            "exit_fee_usdc": round(exit_fee, 5),
+            "holding_hours": round((when_ms - entry_ms) / 3_600_000, 3),
+            **entry_details,
             "pnl_usdc": round(pnl, 5),
             "pnl_pct_on_allocated": round(pnl / cost * 100, 4),
         })
+        fill_events.append({"action": "SELL", "reason": reason, "utc": utc(when_ms),
+                            "notional_usdc": round(qty * px, 5),
+                            "execution_price": round(px, 8)})
+        entry_details = {}
         qty = cost = entry_px = stop_px = target_px = distance = 0.0
         entry_ms = None
 
@@ -122,7 +143,7 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
         candle = candles[i]
         # Pending close-of-bar signals execute on a LATER bar open.
         if pending and pending[0] == i:
-            _, action, risk = pending
+            _, action, risk, signal_ms = pending
             if action == "EXIT_CANDIDATE" and qty > 0:
                 reference = candle.open
                 close_position(reference * (1 - buy_load), candle.open_time_ms,
@@ -132,10 +153,9 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
                 entry_price = reference * (1 + buy_load)
                 eq = cash
                 max_budget = min(cash, eq * cfg.allocation)
-                desired_qty = min(
-                    max_budget / (entry_price * (1 + fee)),
-                    cfg.risk_fraction * eq / risk,
-                )
+                allocation_limit_units = max_budget / (entry_price * (1 + fee))
+                risk_limit_units = cfg.risk_fraction * eq / risk
+                desired_qty = min(allocation_limit_units, risk_limit_units)
                 units = rounded_quantity(desired_qty, cfg.step_size)
                 if units < float(cfg.min_qty) or units * entry_price < float(cfg.min_notional) or units <= 0:
                     blocked_orders += 1
@@ -154,12 +174,36 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
                         fee_paid += entry_fee
                         impact_paid += qty * (entry_px - reference)
                         turnover += gross
+                        entry_notional_total += gross
+                        entries_count += 1
+                        entry_allocations.append(100 * gross / cfg.capital_usdc)
+                        entry_details = {
+                            "signal_utc": utc(signal_ms),
+                            "entry_allocation_pct_initial_capital": round(100 * gross / cfg.capital_usdc, 4),
+                            "entry_allocation_pct_equity": round(100 * gross / eq, 4),
+                            "risk_budget_usdc": round(cfg.risk_fraction * eq, 5),
+                            "stop_distance_usdc_per_unit": round(risk, 8),
+                            "initial_stop_price": round(stop_px, 8),
+                            "size_limiter": "risk_budget" if risk_limit_units < allocation_limit_units else "allocation_cap",
+                        }
+                        fill_events.append({
+                            "action": "BUY", "utc": utc(candle.open_time_ms),
+                            "signal_utc": utc(signal_ms), "notional_usdc": round(gross, 5),
+                            "execution_price": round(entry_price, 8),
+                            "allocation_pct_initial_capital": round(100 * gross / cfg.capital_usdc, 4),
+                        })
                     else:
                         blocked_orders += 1
             pending = None
 
         if qty > 0:
             exposure_bars += 1
+            live_notional = qty * candle.close
+            peak_position_notional = max(peak_position_notional, live_notional)
+            running_equity = cash + live_notional
+            percent = 100 * live_notional / running_equity if running_equity > 0 else 0
+            gross_exposure_sum_pct += percent
+            peak_allocation_equity_pct = max(peak_allocation_equity_pct, percent)
             # STOP wins ambiguous intrabar order. A stop gap is filled at OPEN.
             if candle.low <= stop_px:
                 reference = min(candle.open, stop_px)
@@ -193,13 +237,13 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
             })
         if i < stop - cfg.latency_bars:
             if circuit_breaker and qty > 0 and pending is None:
-                pending = (i + cfg.latency_bars, "EXIT_CANDIDATE", 0)
+                pending = (i + cfg.latency_bars, "EXIT_CANDIDATE", 0, candle.close_time_ms)
             elif pending is None:
                 signal = signals[i]
                 if qty == 0 and signal.action == "ENTRY_CANDIDATE" and not circuit_breaker:
-                    pending = (i + cfg.latency_bars, signal.action, signal.risk_distance)
+                    pending = (i + cfg.latency_bars, signal.action, signal.risk_distance, candle.close_time_ms)
                 elif qty > 0 and signal.action == "EXIT_CANDIDATE":
-                    pending = (i + cfg.latency_bars, signal.action, 0)
+                    pending = (i + cfg.latency_bars, signal.action, 0, candle.close_time_ms)
 
     final_equity = cash + qty * candles[stop - 1].close * (1 - buy_load) * (1 - fee)
     daily_returns = []
@@ -230,6 +274,17 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
         "profit_factor": round(profit_factor, 4) if profit_factor is not None else None,
         "sharpe_annualized_365d": round(sharpe, 4) if sharpe is not None else None,
         "turnover_pct_initial_capital": round(100 * turnover / cfg.capital_usdc, 2),
+        "filled_buys": entries_count,
+        "filled_sells": len(closed),
+        "total_buy_notional_usdc": round(entry_notional_total, 4),
+        "total_sell_notional_usdc": round(exit_notional_total, 4),
+        "gross_traded_notional_usdc": round(turnover, 4),
+        "gross_traded_notional_pct_initial_capital": round(100 * turnover / cfg.capital_usdc, 2),
+        "avg_entry_allocation_pct_initial_capital": round(sum(entry_allocations) / len(entry_allocations), 3) if entry_allocations else None,
+        "max_entry_allocation_pct_initial_capital": round(max(entry_allocations), 3) if entry_allocations else None,
+        "peak_open_position_notional_usdc": round(peak_position_notional, 4),
+        "peak_open_position_pct_equity": round(peak_allocation_equity_pct, 3),
+        "mean_position_pct_equity_over_all_bars": round(gross_exposure_sum_pct / (stop - first), 3),
         "exposure_pct": round(100 * exposure_bars / (stop - first), 2),
         "fees_paid_usdc": round(fee_paid, 4),
         "estimated_spread_slippage_usdc": round(impact_paid, 4),
@@ -240,5 +295,6 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
         "excess_vs_bh20_pct": round(100 * (final_equity / cfg.capital_usdc - 1) - bh20, 4),
         "cash_benchmark_pct": 0.0,
         "trades": closed,
+        "fill_events": fill_events,
         "equity_curve_daily": equity_daily,
     }
