@@ -62,6 +62,8 @@ on:
       - 'publish_reports.py'
       - 'build_dashboard.py'
       - 'tests/**'
+      - 'advanced_lab.py'
+      - 'publish_advanced.py'
 
   # Weekly default discovery runs, no credentials, no trading; set to Sunday UTC.
   schedule:
@@ -98,7 +100,7 @@ jobs:
 
       - name: Offline unit tests (no keys/orders)
         run: |
-          python -m compileall -q autotrading tests strategy_lab.py build_dashboard.py publish_reports.py analyze.py backtest.py
+          python -m compileall -q autotrading tests strategy_lab.py advanced_lab.py build_dashboard.py publish_reports.py publish_advanced.py analyze.py backtest.py
           python -m unittest discover -s tests -v
 
       - name: Run random-window Strategy Lab
@@ -110,13 +112,23 @@ jobs:
             --windows "$LAB_WINDOWS" \
             --seed "$LAB_SEED"
 
+      - name: Run Engine 3.0 (daily Turtle / multi-timeframe / walk-forward)
+        if: ${{ env.LAB_MODE == 'discover' }}
+        run: |
+          python advanced_lab.py \
+            --days "$LAB_DAYS" \
+            --symbol "$LAB_SYMBOL" \
+            --windows "$LAB_WINDOWS" \
+            --seed "$LAB_SEED"
+
       - name: Publish public-safe report for Lovable app
         if: ${{ env.LAB_MODE == 'discover' && github.ref == 'refs/heads/main' }}
         run: |
           python publish_reports.py --run-id "$GITHUB_RUN_ID" --source-sha "$GITHUB_SHA"
+          python publish_advanced.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add reports/latest.json
+          git add reports/latest.json reports/advanced-latest.json
           if ! git diff --cached --quiet; then
             git commit -m "data: refresh public Strategy Lab research snapshot [skip ci]"
             git pull --rebase origin main
@@ -132,6 +144,15 @@ jobs:
           name: strategy-lab-dashboard-${{ github.run_id }}
           path: data/site/index.html
           if-no-files-found: error
+          retention-days: 30
+
+      - name: Download Engine 3.0 report and continuous curves
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-engine3-${{ github.run_id }}
+          path: data/advanced/
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Downloadable detailed report and samples
