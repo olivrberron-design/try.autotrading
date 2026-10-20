@@ -195,6 +195,7 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
                             "signal_utc": utc(signal_ms), "notional_usdc": round(gross, 5),
                             "execution_price": round(entry_price, 8),
                             "allocation_pct_initial_capital": round(100 * gross / cfg.capital_usdc, 4),
+                            "equity_before_entry_usdc": round(eq, 6),
                         })
                     else:
                         blocked_orders += 1
