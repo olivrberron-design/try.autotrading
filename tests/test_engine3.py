@@ -6,6 +6,7 @@ from autotrading.advanced_strategies import (
     AdvancedSignal, advanced_signals, STRATEGIES_V3,
 )
 from autotrading.engine3 import ExecutionConfig, rounded_quantity, simulate_v3
+from autotrading.audit3 import audit_signals, audit_fills
 from autotrading.history import current_spot_filters
 from advanced_lab import run_research
 
@@ -89,6 +90,45 @@ class TestExecutionV3(unittest.TestCase):
             with self.assertRaises(ValueError):
                 ExecutionConfig(**values).validate()
 
+    def test_trade_notional_reconciles_and_audit_fills(self):
+        c = [bar(i) for i in range(9)]
+        sig = dummy_actions(9, entries=(1,), exits=(4,))
+        cfg = ExecutionConfig(fee_bps=10, slippage_bps=5, spread_bps=2,
+                              trailing_atr_multiple=0, risk_fraction=0.05)
+        result = simulate_v3(c, sig, 0, 9, cfg)
+        self.assertTrue(audit_fills(c, sig, result, cfg)["passed"])
+        self.assertEqual(result["filled_buys"], 1)
+        self.assertEqual(result["filled_sells"], 1)
+        self.assertGreater(result["total_buy_notional_usdc"], 0)
+        self.assertGreater(result["total_sell_notional_usdc"], 0)
+        self.assertAlmostEqual(result["gross_traded_notional_usdc"],
+                               result["total_buy_notional_usdc"] + result["total_sell_notional_usdc"], places=3)
+        self.assertAlmostEqual(result["gross_traded_notional_pct_initial_capital"],
+                               result["gross_traded_notional_usdc"] / 5000 * 100, places=2)
+        trade = result["trades"][0]
+        self.assertLessEqual(trade["entry_allocation_pct_equity"], 20.01)
+        self.assertEqual(trade["size_limiter"], "allocation_cap")
+        self.assertEqual(trade["signal_utc"], "1970-01-01T01:59:59.999000+00:00")
+
+    def test_larger_allocation_can_increase_deployment_without_implying_profit(self):
+        c = [bar(i) for i in range(9)]
+        sig = dummy_actions(9, entries=(1,), exits=(4,))
+        base = ExecutionConfig(fee_bps=0, slippage_bps=0, spread_bps=0,
+                               trailing_atr_multiple=0, risk_fraction=0.05)
+        a = simulate_v3(c, sig, 0, 9, replace(base, allocation=0.20))
+        b = simulate_v3(c, sig, 0, 9, replace(base, allocation=0.80))
+        self.assertGreater(b["total_buy_notional_usdc"], a["total_buy_notional_usdc"])
+        self.assertLessEqual(b["peak_open_position_pct_equity"], 80.01)
+
+    def test_mutated_fill_without_signal_is_caught(self):
+        c = [bar(i) for i in range(9)]
+        sig = dummy_actions(9, entries=(1,), exits=(4,))
+        cfg = ExecutionConfig(fee_bps=0, slippage_bps=0, spread_bps=0, trailing_atr_multiple=0)
+        result = simulate_v3(c, sig, 0, 9, cfg)
+        mutated = dummy_actions(9, entries=(), exits=(4,))
+        with self.assertRaises(AssertionError):
+            audit_fills(c, mutated, result, cfg)
+
     def test_equity_metrics_without_trades(self):
         r = simulate_v3([bar(i) for i in range(72)],
                         dummy_actions(72, entries=()), 0, 72)
@@ -126,6 +166,17 @@ class TestSignalsV3(unittest.TestCase):
         self.assertEqual(out["turtle_daily_20"][target].action, "ENTRY_CANDIDATE")
         self.assertEqual(out["turtle_daily_55"][target].action, "ENTRY_CANDIDATE")
 
+    def test_independent_strategy_rules_audit_catches_mutations(self):
+        h = [bar(i, HOUR) for i in range(260*24)]
+        f = [bar(i, 4*HOUR) for i in range(260*6)]
+        d = [bar(i, DAY) for i in range(260)]
+        sig = advanced_signals(h, f, d)
+        self.assertTrue(audit_signals(h, f, d, sig, until_index=235*24)["passed"])
+        altered = {name: list(values) for name, values in sig.items()}
+        altered["turtle_daily_20"][220*24] = AdvancedSignal("ENTRY_CANDIDATE", 10.0)
+        with self.assertRaises(AssertionError):
+            audit_signals(h, f, d, altered, until_index=235*24)
+
     def test_hourly_breakout_does_not_use_current_partial_day(self):
         h = [bar(i, HOUR, 100 + i*0.001) for i in range(300*24)]
         f = [bar(i, 4*HOUR, 100 + i*0.004) for i in range(300*6)]
@@ -158,6 +209,12 @@ class TestSignalsV3(unittest.TestCase):
             self.assertLess(fold["training_end_utc"], fold["test_start_utc"])
             self.assertLess(fold["test_end_utc"], r["reserved_holdout_start_utc"])
         self.assertLessEqual(r["random_window_count_used"], 4)
+        self.assertEqual(len(r["long_stress_windows"]), 1)
+        self.assertEqual(r["long_stress_windows"][0]["duration_days"], 180)
+        self.assertTrue(r["rule_audit"]["passed"])
+        self.assertTrue(all(x["execution_audit"]["passed"] for x in r["continuous_discovery"].values()))
+        self.assertEqual(len(r["capital_utilization_sensitivity"]["turtle_daily_20"]), 4)
+
 
 
 if __name__ == "__main__":
