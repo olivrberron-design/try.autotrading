@@ -25,7 +25,7 @@ def utc(ms):
 
 
 def lite(stats):
-    return {k: v for k, v in stats.items() if k not in ("trades", "equity_curve_daily")}
+    return {k: v for k, v in stats.items() if k not in ("trades", "fill_events", "equity_curve_daily")}
 
 
 def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
