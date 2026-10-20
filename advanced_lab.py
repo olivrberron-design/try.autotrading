@@ -139,7 +139,8 @@ def main():
     ap.add_argument("--fee-bps", type=float, default=10.)
     ap.add_argument("--slippage-bps", type=float, default=5.)
     ap.add_argument("--spread-bps", type=float, default=2.)
-    ap.add_argument("--risk-fraction", type=float, default=0.005)
+    ap.add_argument("--risk-fraction", type=float, default=None)
+    ap.add_argument("--risk-bps", type=int, choices=(25, 50, 100), default=50)
     ap.add_argument("--latency-bars", type=int, choices=(1, 2, 3), default=1)
     args = ap.parse_args()
     print("ENGINE 3.0 | DISCOVERY ONLY | PUBLIC DATA | NO KEYS / NO ORDERS", flush=True)
@@ -161,7 +162,8 @@ def main():
         filters = current_spot_filters(symbol)
         cfg = ExecutionConfig(
             fee_bps=args.fee_bps, slippage_bps=args.slippage_bps,
-            spread_bps=args.spread_bps, risk_fraction=args.risk_fraction,
+            spread_bps=args.spread_bps,
+            risk_fraction=args.risk_fraction if args.risk_fraction is not None else args.risk_bps / 10000,
             latency_bars=args.latency_bars, min_qty=filters["min_qty"],
             step_size=filters["step_size"], min_notional=filters["min_notional"],
         )
