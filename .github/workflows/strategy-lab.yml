@@ -22,6 +22,9 @@ on:
           - '365'
           - '540'
           - '730'
+          - '1460'
+          - '2190'
+          - '2920'
       symbol:
         description: "Vizsgált piac"
         required: true
