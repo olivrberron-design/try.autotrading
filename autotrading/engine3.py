@@ -163,13 +163,13 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
             # STOP wins ambiguous intrabar order. A stop gap is filled at OPEN.
             if candle.low <= stop_px:
                 reference = min(candle.open, stop_px)
-                close_position(reference * (1 - buy_load), candle.open_time_ms,
+                close_position(reference * (1 - buy_load), candle.close_time_ms,
                                "stop_or_trailing_stop", reference)
             elif target_px and candle.high >= target_px:
                 # Target is a *limit* in reality; conservative price capped
                 # at the target, with adverse cost for uncertainty.
                 reference = target_px
-                close_position(reference * (1 - buy_load), candle.open_time_ms,
+                close_position(reference * (1 - buy_load), candle.close_time_ms,
                                "take_profit", reference)
             elif cfg.trailing_atr_multiple > 0:
                 # Trailing update AFTER checking current candle's low; the
@@ -192,7 +192,7 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
                 "equity_usdc": round(marked_equity, 6),
             })
         if i < stop - cfg.latency_bars:
-            if circuit_breaker and qty > 0:
+            if circuit_breaker and qty > 0 and pending is None:
                 pending = (i + cfg.latency_bars, "EXIT_CANDIDATE", 0)
             elif pending is None:
                 signal = signals[i]
