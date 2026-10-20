@@ -61,13 +61,14 @@ def advanced_signals(hourly, fourhour, daily):
             (20, 10, "turtle_daily_20"),
             (55, 20, "turtle_daily_55"),
         ):
-            # Completed DAILY bars prior to j; intentionally exclude day j.
+            # Use the last N COMPLETED daily bars including index j;
+            # an unclosed current UTC day is never in the daily lookup.
             if j < lookback or d_atr[j] is None:
                 continue
-            upper = max(b.high for b in daily[j-lookback:j])
-            lower = min(b.low for b in daily[j-exit_days:j])
-            # Use PREVIOUS daily ATR to avoid volatility feedback on latest bar.
-            distance = 2.0 * d_atr[j-1]
+            upper = max(b.high for b in daily[j-lookback+1:j+1])
+            lower = min(b.low for b in daily[j-exit_days+1:j+1])
+            # Entire day j is already closed when this signal is emitted.
+            distance = 2.0 * d_atr[j]
             if distance <= 0:
                 continue
             action = "HOLD"
