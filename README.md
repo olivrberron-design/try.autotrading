@@ -1,3 +1,46 @@
+## Engine 3.0 — advanced, read-only backtesting
+
+The same [GitHub Strategy Lab workflow](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml) now runs **two separate research engines** (in `discover` mode):
+
+1. The original 15 strategies on 15-minute bars, with unchanged historical assumptions and 70/30 methodology.
+2. Engine 3.0 on hourly execution bars with **completed 4-hour and daily context**, consisting of:
+   - `turtle_daily_20`: previous **20 completed DAILY highs**, 10 DAILY lows for signal exit, 2x daily ATR stop, spot-long adaptation.
+   - `turtle_daily_55`: previous **55 completed DAILY highs**, 20 DAILY lows for signal exit, 2x daily ATR stop, spot-long adaptation.
+   - `multi_tf_trend`: daily EMA50/200 trend + 4h EMA20 pullback + 1h EMA20/RSI recapture, with ATR-based risk sizing.
+
+**All executions are mathematical research only.** No demo or live orders; Binance API keys are not loaded by either research engine.
+
+### Data and methodology
+
+- Binance PUBLIC 1h/4h/1d klines, 240 calendar days of warmup, then 365/540/730 study days (your chosen study range). Data must be contiguous.
+- **Chronological discovery**: only first 75% of the selected study, with positions rolled across the full discovery period; remaining 25% is explicitly left untouched by Engine 3.0.
+- **Walk-forward selection** entirely inside discovery: rolling 120 trading-calendar-days of training followed by 30 days of non-overlapping out-of-sample research. If no training strategy has positive net return **and** positive equal-allocation BH20 excess with at least two trades, the fold chooses **cash**. Training-only selection is frozen for the subsequent test month.
+- **Random stress**: 4 to 8 non-overlapping **30/45/60-day** discovery windows. When 24 or 36 legacy random windows are requested in the UI, Engine 3.0 deliberately reduces their count (shown in output) rather than using inappropriate five-day windows for multiweek Turtle systems.
+- Fee, spread, adverse slippage, optional additional whole-hour execution latency, exchange minimum/step quantity filters, estimated target/stop/trailing stop and risk-limited position sizing.
+- A single signal uses only closed OHLCV candles, then fills no earlier than the next **hour OPEN**. If a stop and target both lie in one OHLC bar, the stop wins (pessimistic).
+- Position sizing is capped by available cash, max position fraction, and portfolio-risk budget divided by ATR distance. Max account loss disables new entries and queues liquidation at next allowed open.
+- Metrics include net return, equal-allocation buy-and-hold/cash comparators, max drawdown, net liquidation value, win rate, profit factor, Sharpe on daily marked equity, daily equity curve, turnover, exposure, paid fees, modeled adverse execution impact, rejected small market orders and stop/circuit-breaker activity.
+- Simulation starts **fresh with 5,000 USDC for EACH symbol independently**, not with one shared portfolio. Both-market numbers are NOT additive, and multi-asset joint allocation/correlation constraints remain future work.
+- The `/api/v3/exchangeInfo` quantity filters are **CURRENT**, not point-in-time historical. No minute-level order book, queue priority, historical variable spreads, funding, tax or realistic news availability; stop paths inside a bar remain unobserved.
+- The previously seen 2026 historical periods are **already contaminated** by earlier research. Only newly arriving future DEMO data can become genuinely pristine forward evaluation.
+
+Running locally if ever needed (no secrets, no trades):
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 advanced_lab.py --days 730 --symbol both --windows 8 --seed 42
+```
+
+On GitHub Actions, the detailed artifact is `advanced-engine3-<run-id>`; a **sanitized historical-only summary** goes to `reports/advanced-latest.json`, consumed by AutoTrading Hub's Strategy Lab page. Publishing this file in a PUBLIC repository exposes the research results publicly despite the password-protected frontend. Do **not** make the engine private until a private server-side GitHub data fetch replaces the current public raw feed.
+
+### Sources and scope
+
+Original Turtle strategy rulebook: [Original Turtle Rules](https://tradingblox.com/originalturtles/originalturtlerules.htm). The systems were multi-market, volatility-unit futures systems with pyramiding and shorting; these are **not reproduced** in our spot-long experiments. Exchange constraints: [Binance Spot filters](https://github.com/binance/binance-spot-api-docs/blob/master/filters.md). Binance historic public data: [Binance Public Data](https://github.com/binance/binance-public-data).
+
+**NOT IMPLEMENTED YET**: genuinely point-in-time symbol universe/exchange filter archives, shared multi-asset portfolio, true order-book/latency-calibrated fills, full original Turtle pyramiding, machine-learned regime switching, advanced DSR/PBO multiple-testing adjustment, news-based trading, and autonomous Demo/Live execution. These require more data, independent validation, and separate engineering work; do not interpret the Engine 3.0 reports as predictive guarantees.
+
+---
+
 # AutoTrading — Binance Spot Demo research
 
 A Binance Spot Demo API-kapcsolatot és egy 25 USDC-s virtuális BTC-vételt már sikeresen kipróbáltunk. **A megvásárolt BTC-t nem adjuk el automatikusan.**
