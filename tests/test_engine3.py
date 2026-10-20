@@ -112,6 +112,20 @@ class TestSignalsV3(unittest.TestCase):
         for name in STRATEGIES_V3:
             self.assertEqual(baseline[name], after[name][:len(h)])
 
+    def test_turtle_daily_breakout_uses_previous_closed_days_not_future_high(self):
+        # Current UTC day 220 has an eventual high=130, which is NOT known
+        # at 12:59; its completed hourly 120 close should break prior
+        # 20/55 completed daily highs of 101.
+        h = [bar(i, HOUR) for i in range(270*24)]
+        f = [bar(i, 4*HOUR) for i in range(270*6)]
+        d = [bar(i, DAY) for i in range(270)]
+        target = 220*24 + 12
+        h[target] = bar(target, HOUR, 120, high=121, low=99)
+        d[220] = bar(220, DAY, 100, high=130, low=99)
+        out = advanced_signals(h, f, d)
+        self.assertEqual(out["turtle_daily_20"][target].action, "ENTRY_CANDIDATE")
+        self.assertEqual(out["turtle_daily_55"][target].action, "ENTRY_CANDIDATE")
+
     def test_hourly_breakout_does_not_use_current_partial_day(self):
         h = [bar(i, HOUR, 100 + i*0.001) for i in range(300*24)]
         f = [bar(i, 4*HOUR, 100 + i*0.004) for i in range(300*6)]
