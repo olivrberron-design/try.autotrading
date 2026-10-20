@@ -11,7 +11,7 @@ import urllib.request
 from .market import ALLOWED_PAIRS, Candle, parse_closed_candles
 
 PUBLIC_HOST = "https://data-api.binance.vision"
-INTERVAL_MS = {"15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
+INTERVAL_MS = {"5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "6h": 21_600_000, "12h": 43_200_000, "1d": 86_400_000}
 PAGE_LIMIT = 1000
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "history"
 
@@ -119,6 +119,27 @@ def load_history(symbol, interval, start_ms, end_ms, refresh=False, requester=No
     os.replace(temp, path)
     print(f"Downloaded {symbol} {interval}: {len(candles)} candles", flush=True)
     return candles
+
+
+def first_available_open(symbol, interval, requester=None):
+    """Find the first available PUBLIC spot bar, without backfilling dates.
+
+    Binance REST returns the oldest bars on/after the requested startTime.
+    Trading pairs have different listing dates; 8 years requested is NOT a
+    guarantee of 8 years of usable BTCUSDC/ETHUSDC bars.
+    """
+    if symbol not in ALLOWED_PAIRS or interval not in INTERVAL_MS:
+        raise ValueError("Unsupported spot pair or timeframe")
+    fetch = requester or public_get
+    page = fetch("/api/v3/klines", {
+        "symbol": symbol, "interval": interval, "startTime": 0, "limit": 1,
+    })
+    if not page or not isinstance(page, list) or not isinstance(page[0], list):
+        raise RuntimeError(f"No public spot history for {symbol} {interval}")
+    start = int(page[0][0])
+    if start < 0 or start % INTERVAL_MS[interval] != 0:
+        raise RuntimeError("Unexpected earliest Binance candle timestamp")
+    return start
 
 
 def current_spot_filters(symbol, requester=None):
