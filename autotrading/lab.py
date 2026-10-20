@@ -37,7 +37,7 @@ def regime_at(window_start_ms, hour_closes_ms, hour_ema50, hour_ema200):
     return "sideways"
 
 
-def sample_windows(first, boundary, count, seed, lengths=(5, 7, 10, 14, 21, 30, 45, 60, 90)):
+def sample_windows(first, boundary, count, seed, lengths=(5, 7, 10, 14, 21, 30, 45, 60, 90), bars_per_day=DAY_BARS):
     """Reproducible, RANDOM and DISJOINT discovery windows.
 
     Random durations plus random gaps spread samples across the entire
@@ -45,18 +45,20 @@ def sample_windows(first, boundary, count, seed, lengths=(5, 7, 10, 14, 21, 30, 
     24 independent 30-day windows simply do NOT fit within ~274 days.
     The resulting windows are disjoint but the market is still autocorrelated.
     """
+    if bars_per_day <= 0:
+        raise ValueError("bars_per_day must be positive")
     if not 1 <= count <= 100:
         raise ValueError("Choose 1..100 sample windows")
     if boundary <= first or not lengths or min(lengths) < 3:
         raise ValueError("Invalid discovery range or window lengths")
-    days_available = (boundary - first) // DAY_BARS
+    days_available = (boundary - first) // bars_per_day
     # Reserve 20% of the discovery span as gaps, to avoid adjacent clones.
     max_days = int(0.8 * days_available / count)
     options = [int(d) for d in lengths if d <= max_days]
     if not options:
         raise ValueError("Not enough historical data for this many DISJOINT windows. Choose fewer windows or more days.")
     rng = random.Random(seed)
-    durations = [rng.choice(options) * DAY_BARS for _ in range(count)]
+    durations = [rng.choice(options) * bars_per_day for _ in range(count)]
     rng.shuffle(durations)
     slack = boundary - first - sum(durations)
     if slack < 0:
