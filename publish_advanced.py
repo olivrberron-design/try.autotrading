@@ -26,11 +26,15 @@ def sanitized(src, run_id=""):
             "reserved_holdout_start_utc", "reserved_holdout_end_utc",
             "reserved_holdout_evaluated", "random_window_count_requested",
             "random_window_count_used", "stress_windows", "walk_forward",
-            "cautions", "filter_source",
+            "cautions", "filter_source", "long_stress_windows",
+            "capital_utilization_sensitivity", "rule_audit",
         )
         data = {k: research[k] for k in keys if k in research}
         data["continuous_discovery"] = {
-            name: {"stats": block["stats"], "equity_curve_daily": block["equity_curve_daily"]}
+            name: {"stats": block["stats"], "equity_curve_daily": block["equity_curve_daily"],
+                   "trades": block.get("trades", []),
+                   "fill_events": block.get("fill_events", []),
+                   "execution_audit": block.get("execution_audit", {})}
             for name, block in research["continuous_discovery"].items()
         }
         markets[symbol] = data
