@@ -94,7 +94,7 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
 
     # 30/45/60d stress windows (NOT 5-day windows for 55d Turtle).
     count = min(requested_windows, 8 if boundary-first >= 400*BARS_DAY else 4)
-    windows = sample_windows(first, boundary, count, seed, lengths=(30, 45, 60))
+    windows = sample_windows(first, boundary, count, seed, lengths=(30, 45, 60), bars_per_day=BARS_DAY)
     stress = []
     for n, (a, b) in enumerate(windows, 1):
         stress.append({
