@@ -26,7 +26,7 @@ def sanitized(src, run_id=""):
             "reserved_holdout_start_utc", "reserved_holdout_end_utc",
             "reserved_holdout_evaluated", "random_window_count_requested",
             "random_window_count_used", "stress_windows", "walk_forward",
-            "cautions", "filter_source", "long_stress_windows",
+            "cautions", "filter_source", "data_coverage", "long_stress_windows",
             "capital_utilization_sensitivity", "rule_audit",
         )
         data = {k: research[k] for k in keys if k in research}
