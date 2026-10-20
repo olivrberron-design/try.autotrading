@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Engine 3.0 discovery ONLY. Final 25 percent reserved, never evaluated."""
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime, timezone
 import argparse
 import json
@@ -8,6 +8,7 @@ import math
 import os
 from pathlib import Path
 from autotrading.advanced_strategies import advanced_signals, STRATEGIES_V3
+from autotrading.audit3 import audit_signals, audit_fills
 from autotrading.engine3 import ExecutionConfig, simulate_v3
 from autotrading.history import load_history, public_get, current_spot_filters
 from autotrading.lab import sample_windows
@@ -37,13 +38,16 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
     if boundary - first < 180 * BARS_DAY:
         raise ValueError("Need >=180 days of discovery data")
     signals = advanced_signals(hours, h4, days)
+    signal_audit = audit_signals(hours, h4, days, signals, until_index=boundary)
     names = tuple(STRATEGIES_V3)
     chronological = {}
     for name in names:
         stats = simulate_v3(hours, signals[name], first, boundary, cfg)
+        ledger_audit = audit_fills(hours, signals[name], stats, cfg)
         chronological[name] = {
             "stats": lite(stats), "equity_curve_daily": stats["equity_curve_daily"],
-            "trades": stats["trades"],
+            "trades": stats["trades"], "fill_events": stats["fill_events"],
+            "execution_audit": ledger_audit,
         }
 
     # Chronological nested selection: 120d TRAIN, NEXT 30d TEST, rolling 30d.
@@ -105,6 +109,53 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
             "results": {name: lite(simulate_v3(hours, signals[name], a, b, cfg))
                         for name in names},
         })
+    # Fixed 180-day RANDOM, NONOVERLAPPING periods, entirely inside discovery.
+    # 730 studied days permit two; 365/540 permit one. Random seed is
+    # reproducible, NOT an invitation to mine many seeds for a winning sample.
+    available_days = (boundary - first) // BARS_DAY
+    long_count = min(2, int(available_days * 0.8 // 180))
+    if long_count < 1:
+        raise ValueError("Cannot fit a six-month discovery test")
+    long_ranges = sample_windows(
+        first, boundary, long_count, seed + 180,
+        lengths=(180,), bars_per_day=BARS_DAY,
+    )
+    long_stress = [{
+        "window": i,
+        "start_utc": utc(hours[a].open_time_ms),
+        "end_utc": utc(hours[b-1].close_time_ms),
+        "duration_days": (b-a) / BARS_DAY,
+        "results": {
+            name: lite(simulate_v3(hours, signals[name], a, b, cfg))
+            for name in names
+        },
+    } for i, (a, b) in enumerate(long_ranges, 1)]
+
+    # Compare fixed ALLOCATION CAP only. Risk fraction is kept unchanged
+    # to isolate capital deployment; same historical data = sensitivity,
+    # not new independent evidence of alpha.
+    utilization_sensitivity = {}
+    for name in names:
+        utilization_sensitivity[name] = []
+        for allocation in (0.20, 0.50, 0.80, 1.0):
+            scenario_cfg = replace(cfg, allocation=allocation)
+            stats = simulate_v3(hours, signals[name], first, boundary, scenario_cfg)
+            utilization_sensitivity[name].append({
+                "allocation_cap_pct": round(allocation*100),
+                "risk_fraction_pct": round(100*cfg.risk_fraction, 3),
+                "return_pct": stats["return_pct"],
+                "max_drawdown_pct": stats["max_drawdown_pct"],
+                "closed_trades": stats["closed_trades"],
+                "filled_buys": stats["filled_buys"],
+                "total_buy_notional_usdc": stats["total_buy_notional_usdc"],
+                "gross_traded_notional_usdc": stats["gross_traded_notional_usdc"],
+                "avg_entry_allocation_pct_initial_capital": stats["avg_entry_allocation_pct_initial_capital"],
+                "peak_open_position_pct_equity": stats["peak_open_position_pct_equity"],
+                "mean_position_pct_equity_over_all_bars": stats["mean_position_pct_equity_over_all_bars"],
+                "fees_paid_usdc": stats["fees_paid_usdc"],
+                "estimated_spread_slippage_usdc": stats["estimated_spread_slippage_usdc"],
+            })
+
     return {
         "symbol": symbol, "engine": "3.0-research-only",
         "strategy_definitions": STRATEGIES_V3, "config": asdict(cfg),
@@ -115,7 +166,10 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
         "reserved_holdout_evaluated": False,
         "random_window_count_requested": requested_windows,
         "random_window_count_used": count,
-        "stress_windows": stress, "continuous_discovery": chronological,
+        "stress_windows": stress, "long_stress_windows": long_stress,
+        "capital_utilization_sensitivity": utilization_sensitivity,
+        "rule_audit": signal_audit,
+        "continuous_discovery": chronological,
         "walk_forward": wf,
         "cautions": [
             "Research-only: no futures, shorts, leverage, pyramiding or real orders.",
@@ -124,6 +178,8 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
             "Current Binance exchangeInfo filters may differ from historical symbol filters.",
             "All 1h/4h/1d features use completed candles only. Hourly OHLC stop-first.",
             "Intrabar stops/take-profit are ambiguous; the adverse stop always takes priority.",
+            "Six-month windows and exposure scenarios use discovery data only; neither are independent holdout evidence.",
+            "Higher allocation caps need not increase deployment when ATR risk sizing is the actual limit.",
             "Prior research already viewed some dates in reserved 2026 history.",
             "Historical results do NOT demonstrate future profitable trading.",
         ],
