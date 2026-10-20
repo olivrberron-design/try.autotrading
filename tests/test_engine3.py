@@ -8,6 +8,7 @@ from autotrading.advanced_strategies import (
 from autotrading.engine3 import ExecutionConfig, rounded_quantity, simulate_v3
 from autotrading.audit3 import audit_signals, audit_fills
 from autotrading.history import current_spot_filters
+from autotrading.lab import sample_windows
 from advanced_lab import run_research
 
 HOUR = 3_600_000
@@ -196,6 +197,16 @@ class TestSignalsV3(unittest.TestCase):
         f = current_spot_filters("BTCUSDC", requester=fetch)
         self.assertEqual(f["step_size"], "0.00001")
         self.assertEqual(f["min_notional"], "5")
+
+    def test_two_nonoverlapping_180_day_windows_fit_730_day_discovery(self):
+        # 730 days * 75% = 547.5d discovery, 24 bars/day.
+        boundary = 547 * 24
+        w = sample_windows(0, boundary, 2, seed=42+180,
+                           lengths=(180,), bars_per_day=24)
+        self.assertEqual(len(w), 2)
+        self.assertTrue(all((stop-start) == 180*24 for start, stop in w))
+        self.assertLessEqual(w[0][1], w[1][0])
+        self.assertLessEqual(w[1][1], boundary)
 
     def test_discovery_only_walkforward_uses_earlier_data(self):
         h = [bar(i, HOUR) for i in range(560*24)]
