@@ -114,7 +114,7 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
     # 730 studied days permit two; 365/540 permit one. Random seed is
     # reproducible, NOT an invitation to mine many seeds for a winning sample.
     available_days = (boundary - first) // BARS_DAY
-    long_count = min(2, int(available_days * 0.8 // 180))
+    long_count = min(8, int(available_days * 0.8 // 180))
     if long_count < 1:
         raise ValueError("Cannot fit a six-month discovery test")
     long_ranges = sample_windows(
