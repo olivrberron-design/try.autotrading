@@ -133,9 +133,9 @@ class TestSignalsV3(unittest.TestCase):
         self.assertEqual(f["min_notional"], "5")
 
     def test_discovery_only_walkforward_uses_earlier_data(self):
-        h = [bar(i, HOUR) for i in range(450*24)]
-        f = [bar(i, 4*HOUR) for i in range(450*6)]
-        d = [bar(i, DAY) for i in range(450)]
+        h = [bar(i, HOUR) for i in range(510*24)]
+        f = [bar(i, 4*HOUR) for i in range(510*6)]
+        d = [bar(i, DAY) for i in range(510)]
         r = run_research("BTCUSDC", h, f, d,
                          ExecutionConfig(), trading_start_ms=240*DAY,
                          requested_windows=12, seed=42)
