@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from .indicators import atr, ema, rsi
 
 STRATEGIES_V3 = {
-    "turtle_daily_20": "Previous 20 DAILY highs / 10 DAILY lows; 2x daily ATR stop",
-    "turtle_daily_55": "Previous 55 DAILY highs / 20 DAILY lows; 2x daily ATR stop",
+    "turtle_daily_20": "Previous 20 DAILY highs / 10 DAILY lows; 2x daily ATR stop; no unrelated EMA gate",
+    "turtle_daily_55": "Previous 55 DAILY highs / 20 DAILY lows; 2x daily ATR stop; no unrelated EMA gate",
     "multi_tf_trend": "Daily EMA50/200 regime, 4h EMA20 pullback, 1h EMA20 recovery",
 }
 
@@ -72,9 +72,9 @@ def advanced_signals(hourly, fourhour, daily):
             if distance <= 0:
                 continue
             action = "HOLD"
-            if close > upper and hourly[i-1].close <= upper and bullish:
+            if close > upper and hourly[i-1].close <= upper:
                 action = "ENTRY_CANDIDATE"
-            elif close < lower or not bullish:
+            elif close < lower:
                 action = "EXIT_CANDIDATE"
             output[name][i] = AdvancedSignal(action, distance)
 
