@@ -70,7 +70,7 @@ on:
         description: "Engine3: tervezett max. kockázat/kötés (bps tőkéből)"
         type: choice
         default: '50'
-        options: ['25', '50', '100']
+        options: ['25', '50', '100', '250', '500']
       latency_bars:
         description: "Engine3: végrehajtási késleltetés (óra)"
         type: choice
