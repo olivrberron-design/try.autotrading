@@ -33,6 +33,49 @@ python3 advanced_lab.py --days 730 --symbol both --windows 8 --seed 42
 
 On GitHub Actions, the detailed artifact is `advanced-engine3-<run-id>`; a **sanitized historical-only summary** goes to `reports/advanced-latest.json`, consumed by AutoTrading Hub's Strategy Lab page. Publishing this file in a PUBLIC repository exposes the research results publicly despite the password-protected frontend. Do **not** make the engine private until a private server-side GitHub data fetch replaces the current public raw feed.
 
+### Six-month stress tests, trade audit and capital sensitivity
+
+The advanced engine now additionally computes one or two **fixed-length 180-day**
+random, DISJOINT discovery windows. At 730 studied days two fit into the
+discovery period; shorter runs provide one. Samples never touch the final
+chronological 25%, which remains reserved and is not pristine given earlier
+experiments.
+
+**Capital and trading volume are different**. For each strategy, report:
+
+- Filled BUY and SELL counts and total BUY / SELL notionals in USDC.
+- Total gross BUY+SELL turnover both as dollars and % of the initial 5,000
+  USDC. It can exceed 100% even when the account never uses leverage.
+- Per-trade entry value, fraction of initial capital and contemporaneous
+  equity, entry time and triggering closed-candle time, risk/position cap,
+  initial stop and subsequent exit reason, gross sell value and net PnL.
+- Maximum **simultaneously deployed** position as USDC and fraction of equity,
+  mean percentage of account equity deployed across ALL hours, and time with
+  an open position. Open unrealized positions are not counted as closed wins.
+- A controlled sensitivity grid varying ONLY maximum spot allocation cap
+  (20/50/80/100%) on the same discovery period with the SAME ATR risk
+  fraction. Increasing the cap cannot override the risk limit. These are
+  **not independent validation experiments** or proofs of future returns.
+
+The `autotrading.audit3` module independently replays the stated
+daily Turtle20/55 and 1d/4h/1h entry and exit signal rules from completed
+candles. It verifies every hourly discovery signal, and every executed BUY,
+SELL, stop/take-profit trigger, cash PnL and BTC/ETH position limit in the
+full discovery runs. An inconsistency raises AssertionError and prevents
+publishing new results. The additional regression tests deliberately corrupt
+signals to make sure the audit detects such errors.
+
+The read-only report dashboard displays six-month windows, utilization
+scenarios and the complete closed-trade audit ledger after the next
+successful run. Until then, the earlier report cannot be considered audited
+under these newer rules.
+
+**Privacy limitation:** while the engine repository remains public, detailed
+historical trade metadata in the new published JSON is also public, EVEN
+though the Lovable webapp requests an admin password. To keep strategies
+and detailed positions truly private, we must migrate the feed to an
+authenticated server-side GitHub fetch and then make the engine repo private.
+
 ### Sources and scope
 
 Original Turtle strategy rulebook: [Original Turtle Rules](https://tradingblox.com/originalturtles/originalturtlerules.htm). The systems were multi-market, volatility-unit futures systems with pyramiding and shorting; these are **not reproduced** in our spot-long experiments. Exchange constraints: [Binance Spot filters](https://github.com/binance/binance-spot-api-docs/blob/master/filters.md). Binance historic public data: [Binance Public Data](https://github.com/binance/binance-public-data).
