@@ -85,8 +85,24 @@ class TestExecutionV3(unittest.TestCase):
         self.assertAlmostEqual(rounded_quantity(1.23456, "0.001"), 1.234)
         self.assertAlmostEqual(rounded_quantity(0.00000001, "0.00001"), 0)
 
+    def test_research_accepts_2_5_and_5_pct_stop_risk_only(self):
+        for value in (0.025, 0.05):
+            cfg = ExecutionConfig(risk_fraction=value)
+            cfg.validate()
+            self.assertAlmostEqual(cfg.risk_fraction * cfg.capital_usdc,
+                                   125 if value == 0.025 else 250)
+        # A higher risk budget cannot override the spot allocation cap.
+        candles = [bar(i) for i in range(9)]
+        signals = dummy_actions(9, entries=(1,), exits=(4,))
+        for value in (0.025, 0.05):
+            result = simulate_v3(candles, signals, 0, 9, ExecutionConfig(
+                risk_fraction=value, fee_bps=0, slippage_bps=0, spread_bps=0,
+                trailing_atr_multiple=0))
+            self.assertLessEqual(result["max_entry_allocation_pct_initial_capital"], 20.01)
+
     def test_invalid_costs_and_risk_refused(self):
         for values in ({"fee_bps": -1}, {"risk_fraction": 1},
+                       {"risk_fraction": 0.050001},
                        {"latency_bars": 0}, {"spread_bps": float("nan")}):
             with self.assertRaises(ValueError):
                 ExecutionConfig(**values).validate()
