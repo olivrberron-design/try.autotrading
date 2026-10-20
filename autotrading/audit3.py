@@ -115,7 +115,8 @@ def audit_fills(candles, signal_set, result, cfg):
         assert fill_ms > signal_ms, "Fill predates completed signal"
         assert e["allocation_pct_initial_capital"] >= 0
         assert e["notional_usdc"] > 0
-        assert e["notional_usdc"] <= cfg.capital_usdc * 1.05, "Spot leverage prohibited"
+        assert e["notional_usdc"] <= e["equity_before_entry_usdc"] + 0.01, "Spot leverage prohibited"
+        assert e["notional_usdc"] <= e["equity_before_entry_usdc"] * cfg.allocation + 0.02, "Position cap exceeded at entry"
     bars_by_close = {bar.close_time_ms: bar for bar in candles}
     for t in result["trades"]:
         assert t["entry_utc"] < t["exit_utc"], "Trade exits before entry"
