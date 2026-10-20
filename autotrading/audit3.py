@@ -109,8 +109,8 @@ def audit_fills(candles, signal_set, result, cfg):
                    result["total_sell_notional_usdc"], rel_tol=1e-6, abs_tol=0.001)
     for e in entries:
         from datetime import datetime
-        signal_ms = int(datetime.fromisoformat(e["signal_utc"]).timestamp()*1000)
-        fill_ms = int(datetime.fromisoformat(e["utc"]).timestamp()*1000)
+        signal_ms = round(datetime.fromisoformat(e["signal_utc"]).timestamp()*1000)
+        fill_ms = round(datetime.fromisoformat(e["utc"]).timestamp()*1000)
         assert actions_at[signal_ms] == "ENTRY_CANDIDATE", "Fill has no eligible entry signal"
         assert fill_ms > signal_ms, "Fill predates completed signal"
         assert e["allocation_pct_initial_capital"] >= 0
