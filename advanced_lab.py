@@ -11,7 +11,7 @@ from pathlib import Path
 from autotrading.advanced_strategies import advanced_signals, STRATEGIES_V3
 from autotrading.audit3 import audit_signals, audit_fills
 from autotrading.engine3 import ExecutionConfig, simulate_v3
-from autotrading.history import load_history, public_get, current_spot_filters
+from autotrading.history import load_history, public_get, current_spot_filters, first_available_open
 from autotrading.lab import sample_windows
 
 DAY_MS = 86_400_000
@@ -212,10 +212,32 @@ def main():
         "seed": args.seed, "study_days": args.days, "markets": {},
     }
     for symbol in ("BTCUSDC", "ETHUSDC") if args.symbol == "both" else (args.symbol,):
-        print(f"{symbol}: downloading complete 1h, 4h, 1d data", flush=True)
-        hours = load_history(symbol, "1h", download_start, end_ms)
-        four = load_history(symbol, "4h", download_start, end_ms)
-        days = load_history(symbol, "1d", download_start, end_ms)
+        # Long backtests must NEVER fabricate prelisting history. Query the
+        # earliest real bar across all involved spot intervals, then shift
+        # to the next clean UTC day and reserve 240 FULL days for warmup.
+        actual_download_start = download_start
+        symbol_trade_start = trade_start
+        earliest = {}
+        if args.days > 730:
+            earliest = {i: first_available_open(symbol, i) for i in ("1h", "4h", "1d")}
+            earliest_complete_day = ((max(earliest.values()) // DAY_MS) + 1) * DAY_MS
+            actual_download_start = max(download_start, earliest_complete_day)
+            symbol_trade_start = max(trade_start, actual_download_start + WARMUP_DAYS * DAY_MS)
+        actual_study_days = (end_ms + 1 - symbol_trade_start) / DAY_MS
+        if actual_study_days < 365:
+            raise RuntimeError(
+                f"{symbol} only has {actual_study_days:.0f} usable days after warmup: "
+                f"cannot perform this long historical test"
+            )
+        if symbol_trade_start > trade_start:
+            print(f"::warning::{symbol}: requested {args.days} days; "
+                  f"only {actual_study_days:.0f} days available after 240d warmup "
+                  "(pair listing predates only part of the requested period)", flush=True)
+        print(f"{symbol}: downloading complete 1h, 4h, 1d spot data "
+              f"({actual_study_days:.0f} studied days)", flush=True)
+        hours = load_history(symbol, "1h", actual_download_start, end_ms)
+        four = load_history(symbol, "4h", actual_download_start, end_ms)
+        days = load_history(symbol, "1d", actual_download_start, end_ms)
         filters = current_spot_filters(symbol)
         cfg = ExecutionConfig(
             fee_bps=args.fee_bps, slippage_bps=args.slippage_bps,
@@ -224,8 +246,22 @@ def main():
             latency_bars=args.latency_bars, min_qty=filters["min_qty"],
             step_size=filters["step_size"], min_notional=filters["min_notional"],
         )
-        market = run_research(symbol, hours, four, days, cfg, trade_start,
+        market = run_research(symbol, hours, four, days, cfg, symbol_trade_start,
                               requested_windows=args.windows, seed=args.seed)
+        market["data_coverage"] = {
+            "requested_study_days": args.days,
+            "actual_study_days": round(actual_study_days, 2),
+            "requested_start_utc": utc(trade_start),
+            "actual_start_utc": utc(symbol_trade_start),
+            "warmup_start_utc": utc(actual_download_start),
+            "earliest_available_open_utc_by_interval": {
+                k: utc(v) for k, v in earliest.items()
+            },
+            "history_truncated_by_listing": symbol_trade_start > trade_start,
+            "historical_symbol": symbol,
+            "historical_quote": "USDC",
+            "source": "Binance Spot public klines (no synthetic prelisting candles)",
+        }
         market["filter_source"] = filters["filter_source"]
         result["markets"][symbol] = market
         for name, block in market["continuous_discovery"].items():
