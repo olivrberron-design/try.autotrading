@@ -107,7 +107,7 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
     fill_events = []
     entry_details = {}
 
-    def close_position(px, when_ms, reason, reference):
+    def close_position(px, when_ms, reason, reference, exit_signal_ms=None):
         nonlocal cash, qty, cost, entry_px, entry_ms, fee_paid
         nonlocal turnover, impact_paid, stop_px, target_px, distance
         nonlocal exit_notional_total, entry_details
@@ -128,11 +128,15 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
             "entry_fee_usdc": round(cost * fee / (1 + fee), 5),
             "exit_fee_usdc": round(exit_fee, 5),
             "holding_hours": round((when_ms - entry_ms) / 3_600_000, 3),
+            "exit_signal_utc": utc(exit_signal_ms) if exit_signal_ms is not None else None,
+            "stop_level_at_exit": round(stop_px, 8) if reason == "stop_or_trailing_stop" else None,
+            "target_level_at_exit": round(target_px, 8) if reason == "take_profit" else None,
             **entry_details,
             "pnl_usdc": round(pnl, 5),
             "pnl_pct_on_allocated": round(pnl / cost * 100, 4),
         })
         fill_events.append({"action": "SELL", "reason": reason, "utc": utc(when_ms),
+                            "signal_utc": utc(exit_signal_ms) if exit_signal_ms is not None else None,
                             "notional_usdc": round(qty * px, 5),
                             "execution_price": round(px, 8)})
         entry_details = {}
@@ -143,11 +147,11 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
         candle = candles[i]
         # Pending close-of-bar signals execute on a LATER bar open.
         if pending and pending[0] == i:
-            _, action, risk, signal_ms = pending
+            _, action, risk, signal_ms, order_reason = pending
             if action == "EXIT_CANDIDATE" and qty > 0:
                 reference = candle.open
                 close_position(reference * (1 - buy_load), candle.open_time_ms,
-                               "signal", reference)
+                               order_reason, reference, signal_ms)
             elif action == "ENTRY_CANDIDATE" and qty == 0 and not circuit_breaker and risk > 0:
                 reference = candle.open
                 entry_price = reference * (1 + buy_load)
@@ -237,13 +241,13 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
             })
         if i < stop - cfg.latency_bars:
             if circuit_breaker and qty > 0 and pending is None:
-                pending = (i + cfg.latency_bars, "EXIT_CANDIDATE", 0, candle.close_time_ms)
+                pending = (i + cfg.latency_bars, "EXIT_CANDIDATE", 0, candle.close_time_ms, "circuit_breaker")
             elif pending is None:
                 signal = signals[i]
                 if qty == 0 and signal.action == "ENTRY_CANDIDATE" and not circuit_breaker:
-                    pending = (i + cfg.latency_bars, signal.action, signal.risk_distance, candle.close_time_ms)
+                    pending = (i + cfg.latency_bars, signal.action, signal.risk_distance, candle.close_time_ms, "signal")
                 elif qty > 0 and signal.action == "EXIT_CANDIDATE":
-                    pending = (i + cfg.latency_bars, signal.action, 0, candle.close_time_ms)
+                    pending = (i + cfg.latency_bars, signal.action, 0, candle.close_time_ms, "signal")
 
     final_equity = cash + qty * candles[stop - 1].close * (1 - buy_load) * (1 - fee)
     daily_returns = []
