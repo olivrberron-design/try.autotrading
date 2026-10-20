@@ -197,7 +197,7 @@ def main():
     ap.add_argument("--slippage-bps", type=float, default=5.)
     ap.add_argument("--spread-bps", type=float, default=2.)
     ap.add_argument("--risk-fraction", type=float, default=None)
-    ap.add_argument("--risk-bps", type=int, choices=(25, 50, 100), default=50)
+    ap.add_argument("--risk-bps", type=int, choices=(25, 50, 100, 250, 500), default=50)
     ap.add_argument("--latency-bars", type=int, choices=(1, 2, 3), default=1)
     args = ap.parse_args()
     print("ENGINE 3.0 | DISCOVERY ONLY | PUBLIC DATA | NO KEYS / NO ORDERS", flush=True)
