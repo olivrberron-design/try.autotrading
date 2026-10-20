@@ -3,6 +3,7 @@
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
 import argparse
+import csv
 import json
 import math
 import os
@@ -250,12 +251,43 @@ def main():
             s = block["stats"]
             lines.append(f"| {name} | {s['return_pct']:+.2f} | {s['max_drawdown_pct']:.2f} "
                          f"| {s['closed_trades']} | {s['sharpe_annualized_365d']} |")
+        lines += ["", "| Strategy | BUY USDC | SELL USDC | Turnover / 5000 | Avg deployed /entry | Rule/ledger audit |",
+                  "|---|---:|---:|---:|---:|---|"]
+        for name, block in market["continuous_discovery"].items():
+            st = block["stats"]
+            lines.append(f"| {name} | {st['total_buy_notional_usdc']:.2f} "
+                         f"| {st['total_sell_notional_usdc']:.2f} "
+                         f"| {st['gross_traded_notional_pct_initial_capital']:.1f}% "
+                         f"| {st['avg_entry_allocation_pct_initial_capital']}% "
+                         f"| {'PASS' if block['execution_audit']['passed'] else 'FAIL'} |")
+        lines += ["", f"Six-month random discovery windows: {len(market['long_stress_windows'])}.",
+                  f"Full signal audit: {'PASS' if market['rule_audit']['passed'] else 'FAIL'}.", ""]
         wf = market["walk_forward"]
         lines += ["", f"Walk-forward folds: {len(wf['folds'])}; "
                   f"selected OOS compound {wf['selected_oos_compound_return_pct']:+.2f}%.",
                   f"Nonoverlapping 30-60d stress windows: {market['random_window_count_used']}.",
                   ""]
     summary = "\n".join(lines)
+    # Downloadable, human-auditable historical trade ledger for each market
+    # and advanced strategy. Prices/notionals are simulations, not orders.
+    for symbol, market in result["markets"].items():
+        for name, block in market["continuous_discovery"].items():
+            path = DEST / f"{symbol}-{name}-closed-trades.csv"
+            trades = block["trades"]
+            fields = (
+                "signal_utc", "entry_utc", "exit_signal_utc", "exit_utc",
+                "entry_price", "exit_price", "quantity", "entry_notional_usdc",
+                "entry_allocation_pct_initial_capital", "entry_allocation_pct_equity",
+                "risk_budget_usdc", "stop_distance_usdc_per_unit",
+                "initial_stop_price", "stop_level_at_exit", "target_level_at_exit",
+                "size_limiter", "exit_notional_usdc", "entry_fee_usdc",
+                "exit_fee_usdc", "reason", "holding_hours", "pnl_usdc",
+                "pnl_pct_on_allocated",
+            )
+            with path.open("w", newline="", encoding="utf-8") as fp:
+                writer = csv.DictWriter(fp, fieldnames=fields, extrasaction="ignore")
+                writer.writeheader()
+                writer.writerows(trades)
     (DEST / "SUMMARY.md").write_text(summary, encoding="utf-8")
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
