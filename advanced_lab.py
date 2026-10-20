@@ -189,7 +189,7 @@ def run_research(symbol, hours, h4, days, cfg, trading_start_ms,
 
 def main():
     ap = argparse.ArgumentParser(description="Engine3: historical research, zero orders")
-    ap.add_argument("--days", type=int, choices=(365, 540, 730), default=365)
+    ap.add_argument("--days", type=int, choices=(365, 540, 730, 1460, 2190, 2920), default=365)
     ap.add_argument("--symbol", choices=("both", "BTCUSDC", "ETHUSDC"), default="both")
     ap.add_argument("--windows", type=int, choices=(4, 8, 12, 24, 36), default=12)
     ap.add_argument("--seed", type=int, default=42)
