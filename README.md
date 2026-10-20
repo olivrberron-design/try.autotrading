@@ -76,6 +76,36 @@ though the Lovable webapp requests an admin password. To keep strategies
 and detailed positions truly private, we must migrate the feed to an
 authenticated server-side GitHub fetch and then make the engine repo private.
 
+### Többéves kutatás és alternatív idősíkok (2026. október)
+
+A webapp / GitHub Actions támogatja a 365/540/730 nap mellett **1460 nap (4 év),
+2190 nap (6 év), 2920 nap (8 év)** vizsgálati tartományokat. Ezek az új Engine
+3.0-ra vonatkoznak; a korábbi **15×15 perces stratégia maximum 730 napon**
+fut az összehasonlíthatóság és az API-korlát miatt.
+
+A hosszú Engine 3.0-futtatás először megkeresi a BTCUSDC/ETHUSDC kereskedési
+pár tényleges első elérhető Binance spot 1h/4h/1d gyertyáját. Ezután csak
+egy *teljes UTC naptól* kezdi az adatletöltést, fenntart **240 nap**
+indikátor-bemelegítést, és a maradék tényleges adathosszt külön riportolja
+`data_coverage` alatt. **Nyolc kiválasztott év nem jelent garantáltan nyolc
+elérhető évet**; a korábban nem létező kereskedési pár gyertyáit nem helyettesíti
+más instrumentum adataival. Bármely historikus adatrés vagy hibás gyertya esetén
+a letöltés fail-closed; az eredmény nem publikálható úgy, mintha teljes lenne.
+
+Az Engine 3.0 jelenleg **1h végrehajtási, 4h setup- és napi rezsim** gyertyákat
+használ. A historikus adatréteg már ismeri az 5m, 6h és 12h intervallumokat,
+de **ezek még nem választható kereskedési idősíkok** – külön stratégia-,
+audit-, és végrehajtási modell kell hozzájuk. Az 5m×8 év adat nagy mérete
+miatt a Binance monthly archive + checksum (és időbélyeg-konverzió) a tervezett
+következő adatforrás; az általános REST 90 000 gyertyás korlátját nem lazítottuk
+fel meggondolatlanul.
+
+A 180 napos véletlen stresszablakok száma a rendelkezésre álló discovery
+adatokkal nőhet: 2 év esetén körülbelül 2, 4 év esetén 4, 6 év esetén 7,
+8 év esetén maximum 8 – a valódi dátumhatárok és az elkülönített holdout
+előzetesen adottak. Sok idősík és sok paraméter ismételt próbálgatása
+túlillesztést okozhat; a választási szabályokat előre rögzíteni kell.
+
 ### Sources and scope
 
 Original Turtle strategy rulebook: [Original Turtle Rules](https://tradingblox.com/originalturtles/originalturtlerules.htm). The systems were multi-market, volatility-unit futures systems with pyramiding and shorting; these are **not reproduced** in our spot-long experiments. Exchange constraints: [Binance Spot filters](https://github.com/binance/binance-spot-api-docs/blob/master/filters.md). Binance historic public data: [Binance Public Data](https://github.com/binance/binance-public-data).
