@@ -11,13 +11,13 @@ import urllib.request
 from .market import ALLOWED_PAIRS, Candle, parse_closed_candles
 
 PUBLIC_HOST = "https://data-api.binance.vision"
-INTERVAL_MS = {"15m": 900_000, "1h": 3_600_000}
+INTERVAL_MS = {"15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
 PAGE_LIMIT = 1000
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "history"
 
 
 def public_get(path, params=None):
-    if path not in ("/api/v3/time", "/api/v3/klines"):
+    if path not in ("/api/v3/time", "/api/v3/klines", "/api/v3/exchangeInfo"):
         raise ValueError("Historical downloader only supports public market data")
     url = PUBLIC_HOST + path
     if params:
@@ -119,3 +119,29 @@ def load_history(symbol, interval, start_ms, end_ms, refresh=False, requester=No
     os.replace(temp, path)
     print(f"Downloaded {symbol} {interval}: {len(candles)} candles", flush=True)
     return candles
+
+
+def current_spot_filters(symbol, requester=None):
+    """Current PUBLIC exchange filters for simulated MARKET orders.
+
+    IMPORTANT: current exchange filters are NOT point-in-time historical
+    filters. The reported order rejections are approximate for old dates.
+    """
+    if symbol not in ALLOWED_PAIRS:
+        raise ValueError("Unsupported symbol")
+    info = (requester or public_get)("/api/v3/exchangeInfo", {"symbol": symbol})
+    items = info.get("symbols", [])
+    if len(items) != 1 or items[0].get("symbol") != symbol or items[0].get("status") != "TRADING":
+        raise RuntimeError("Market exchangeInfo is missing or symbol is not active")
+    filters = {f["filterType"]: f for f in items[0].get("filters", [])}
+    lot = filters.get("MARKET_LOT_SIZE") or filters.get("LOT_SIZE", {})
+    # Some symbols publish MARKET_LOT_SIZE stepSize=0; use LOT_SIZE then.
+    if float(lot.get("stepSize", "0")) <= 0:
+        lot = filters.get("LOT_SIZE", {})
+    notional = filters.get("NOTIONAL", filters.get("MIN_NOTIONAL", {}))
+    return {
+        "min_qty": lot.get("minQty", "0"),
+        "step_size": lot.get("stepSize", "0"),
+        "min_notional": notional.get("minNotional", "0"),
+        "filter_source": "Current Binance public exchangeInfo (historically imperfect)",
+    }
