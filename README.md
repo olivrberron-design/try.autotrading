@@ -1,3 +1,12 @@
+## Chronological shared-portfolio research (November 2026)
+
+New daily BTC/ETH hypotheses, a single shared cash ledger, cost/latency stress,
+continuous walk-forward selection, data/source hashes, and multiple-comparison
+bootstrap diagnostics are available in `chronological_research.py`.
+See [research protocol and reproducible commands](RESEARCH_PROTOCOL.md).
+Results remain retrospective discovery; the report explicitly identifies failed
+gates and does not promote a backtest winner to live trading.
+
 ## Engine 3.0 — advanced, read-only backtesting
 
 The same [GitHub Strategy Lab workflow](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml) now runs **two separate research engines** (in `discover` mode):

@@ -4,7 +4,9 @@ Raises AssertionError rather than publishing results when a rule or cash ledger
 contradicts the documented strategy. No API keys and no trading endpoints.
 """
 from bisect import bisect_right
-from math import isclose
+from datetime import datetime
+from decimal import Decimal, ROUND_DOWN
+from math import isclose, isfinite
 from .indicators import atr, ema, rsi
 
 
@@ -145,9 +147,110 @@ def audit_fills(candles, signal_set, result, cfg):
         assert isclose(expected, t["pnl_usdc"], abs_tol=0.002), "Trade PnL accounting mismatch"
         assert t["entry_allocation_pct_equity"] <= cfg.allocation*100 + 0.01, "Position allocation cap exceeded"
         assert t["size_limiter"] in ("allocation_cap", "risk_budget")
+    _audit_account(candles, signal_set, result, cfg)
     return {
         "passed": True, "buys_checked": len(entries),
         "sells_checked": len(sells),
         "closed_trades_checked": len(result["trades"]),
         "ledger_reconciled": True,
     }
+
+
+def _audit_account(candles, signal_set, result, cfg):
+    """Reconstruct cash and holdings from causal fills, never from reported PnL.
+
+    Ledger values are rounded for JSON export. Recompute exact model prices and
+    sizes from candles/config, then compare the exported values with explicit
+    rounding tolerances. This also audits an unclosed final position.
+    """
+    def millis(value):
+        return round(datetime.fromisoformat(value).timestamp() * 1000)
+
+    def same(actual, expected, message, tolerance=0.002):
+        assert isfinite(actual) and isfinite(expected) and isclose(
+            actual, expected, rel_tol=1e-9, abs_tol=tolerance), message
+
+    by_open = {bar.open_time_ms: i for i, bar in enumerate(candles)}
+    by_close = {bar.close_time_ms: i for i, bar in enumerate(candles)}
+    first = by_open[millis(result["start_utc"])]
+    final = by_close[millis(result["end_utc"])]
+    assert final >= first, "Invalid report period"
+    same(result["starting_usdc"], cfg.capital_usdc, "Starting capital mismatch")
+    assert result["bars"] == final - first + 1, "Report bar count mismatch"
+    fee = cfg.fee_bps / 10_000
+    impact = (cfg.slippage_bps + cfg.spread_bps / 2) / 10_000
+    cash, quantity, fees, turnover = cfg.capital_usdc, 0.0, 0.0, 0.0
+    previous_ms, active_entry, trade_index = -1, None, 0
+
+    for event in result["fill_events"]:
+        when = millis(event["utc"])
+        assert when >= previous_ms, "Fill ledger is out of order"
+        previous_ms = when
+        assert candles[first].open_time_ms <= when <= candles[final].close_time_ms, "Fill outside report period"
+        action = event["action"]
+        if action == "BUY":
+            assert quantity == 0, "Second BUY before previous position closes"
+            signal_ms = millis(event["signal_utc"])
+            signal_index = by_close[signal_ms]
+            fill_index = by_open[when]
+            assert first <= signal_index < fill_index <= final, "Entry crosses simulation boundary"
+            assert fill_index == signal_index + cfg.latency_bars, "BUY violates configured execution latency"
+            signal = signal_set[signal_index]
+            assert signal.action == "ENTRY_CANDIDATE" and signal.risk_distance > 0, "Invalid BUY risk signal"
+            price = candles[fill_index].open * (1 + impact)
+            same(event["execution_price"], price, "BUY price does not match source candle", 1e-7)
+            same(event["equity_before_entry_usdc"], cash, "Entry equity does not match cash ledger")
+            quantity = min(cash * cfg.allocation / (price * (1 + fee)),
+                           cfg.risk_fraction * cash / signal.risk_distance)
+            step = Decimal(str(cfg.step_size))
+            if step > 0:
+                quantity = float((Decimal(str(quantity)) / step).to_integral_value(rounding=ROUND_DOWN) * step)
+            gross = quantity * price
+            same(event["notional_usdc"], gross, "BUY notional does not match risk/quantity sizing")
+            assert quantity >= float(cfg.min_qty) and gross >= float(cfg.min_notional), "BUY violates quantity filters"
+            same(event["allocation_pct_initial_capital"], 100 * gross / cfg.capital_usdc,
+                 "Reported entry allocation mismatch", 0.0001)
+            cash -= gross * (1 + fee)
+            assert cash >= -0.002, "Negative cash in spot account"
+            active_entry = (event, price, quantity, gross * (1 + fee))
+        else:
+            assert action == "SELL" and quantity > 0 and active_entry is not None, "SELL has no funded position"
+            trade = result["trades"][trade_index]
+            trade_index += 1
+            entry, entry_price, entry_qty, entry_cost = active_entry
+            assert trade["entry_utc"] == entry["utc"] and trade["exit_utc"] == event["utc"], "Trade/fill chronology mismatch"
+            assert trade["reason"] == event["reason"], "Trade/fill exit reason mismatch"
+            same(trade["quantity"], entry_qty, "SELL quantity does not match held quantity", 1e-8)
+            same(trade["entry_price"], entry_price, "Trade entry price differs from BUY", 1e-7)
+            reason = event["reason"]
+            if reason in ("signal", "circuit_breaker"):
+                signal_ms = millis(event["signal_utc"])
+                fill_index = by_open[when]
+                assert fill_index == by_close[signal_ms] + cfg.latency_bars, "SELL violates configured execution latency"
+                reference = candles[fill_index].open
+            elif reason == "stop_or_trailing_stop":
+                reference = min(candles[by_close[when]].open, trade["stop_level_at_exit"])
+            else:
+                assert reason == "take_profit", "Unknown SELL reason"
+                reference = trade["target_level_at_exit"]
+            price = reference * (1 - impact)
+            same(event["execution_price"], price, "SELL price does not match source candle/trigger", 1e-7)
+            same(trade["exit_price"], price, "Trade exit price differs from SELL", 1e-7)
+            gross = quantity * price
+            same(event["notional_usdc"], gross, "SELL notional does not match held quantity")
+            same(trade["exit_notional_usdc"], gross, "Trade exit notional mismatch")
+            same(trade["entry_notional_usdc"], entry_qty * entry_price, "Trade entry notional mismatch")
+            same(trade["entry_fee_usdc"], entry_qty * entry_price * fee, "Entry fee mismatch")
+            same(trade["exit_fee_usdc"], gross * fee, "Exit fee mismatch")
+            same(trade["pnl_usdc"], gross * (1 - fee) - entry_cost, "Trade PnL differs from cash flows")
+            cash += gross * (1 - fee)
+            quantity, active_entry = 0.0, None
+        fees += gross * fee
+        turnover += gross
+
+    assert bool(quantity) == result["open_position_at_end"], "Final holdings mismatch"
+    ending = cash + quantity * candles[final].close * (1 - impact) * (1 - fee)
+    same(result["ending_usdc_net_if_liquidated"], ending, "Final equity does not reconcile to cash and holdings")
+    same(result["return_pct"], 100 * (ending / cfg.capital_usdc - 1), "Reported return does not reconcile", 0.0001)
+    same(result["fees_paid_usdc"], fees, "Paid fees do not reconcile")
+    same(result["gross_traded_notional_usdc"], turnover, "Total turnover does not reconcile")
