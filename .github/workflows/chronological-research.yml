@@ -1,0 +1,46 @@
+name: Chronological portfolio research
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'autotrading/**'
+      - 'tests/**'
+      - 'chronological_research.py'
+      - 'publish_chronological.py'
+      - '.github/workflows/chronological-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline accounting, causality and data-validation tests
+        run: python -m unittest discover -s tests -v
+  research:
+    if: github.event_name == 'workflow_dispatch'
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run fixed historical episodes from public market data
+        run: python chronological_research.py --download --output data/chronological
+      - name: Build historical report
+        run: python publish_chronological.py --input data/chronological/report.json --html data/chronological/report.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chronological-research-${{ github.run_id }}
+          path: data/chronological/
+          if-no-files-found: error
+          retention-days: 30

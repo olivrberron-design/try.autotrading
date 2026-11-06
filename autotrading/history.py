@@ -1,6 +1,7 @@
 """Historical Binance *public* spot klines. GET-only, no credentials, no trading."""
 from dataclasses import asdict
 import json
+import math
 import os
 from pathlib import Path
 import time
@@ -49,6 +50,7 @@ def time_range(days, server_time_ms):
 
 
 def validate_candles(candles, interval, start_ms, end_ms):
+    """Validate cached and downloaded bars equally, including candle close clocks."""
     step = INTERVAL_MS[interval]
     first_expected = (start_ms // step) * step
     last_expected = ((end_ms + 1) // step - 1) * step
@@ -56,6 +58,19 @@ def validate_candles(candles, interval, start_ms, end_ms):
         raise RuntimeError("Missing start of historical series: cannot backtest")
     if candles[-1].open_time_ms != last_expected:
         raise RuntimeError("Missing end of historical series: cannot backtest")
+    for candle in candles:
+        if (not isinstance(candle.open_time_ms, int)
+                or not isinstance(candle.close_time_ms, int)
+                or candle.open_time_ms % step
+                or candle.close_time_ms != candle.open_time_ms + step - 1
+                or candle.close_time_ms > end_ms):
+            raise RuntimeError("Historical candle has an invalid interval/close timestamp")
+        values = (candle.open, candle.high, candle.low, candle.close, candle.volume)
+        if (any(not isinstance(v, (int, float)) or not math.isfinite(v) for v in values)
+                or candle.low <= 0 or candle.volume < 0
+                or candle.high < max(candle.open, candle.close, candle.low)
+                or candle.low > min(candle.open, candle.close, candle.high)):
+            raise RuntimeError("Historical data contains an invalid OHLCV candle")
     for before, after in zip(candles, candles[1:]):
         if after.open_time_ms - before.open_time_ms != step:
             raise RuntimeError("Historical data contains a missing or duplicate candle")
@@ -99,7 +114,9 @@ def load_history(symbol, interval, start_ms, end_ms, refresh=False, requester=No
     path = CACHE_DIR / f"{symbol}-{interval}-{start_ms}-{end_ms}.json"
     if path.exists() and not refresh:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        if payload.get("source") != PUBLIC_HOST or payload.get("symbol") != symbol:
+        expected = {"source": PUBLIC_HOST, "symbol": symbol, "interval": interval,
+                    "start_ms": start_ms, "end_ms": end_ms}
+        if any(payload.get(key) != value for key, value in expected.items()):
             raise RuntimeError("Unexpected historical cache metadata; use --refresh")
         candles = [Candle(**x) for x in payload["candles"]]
         validate_candles(candles, interval, start_ms, end_ms)

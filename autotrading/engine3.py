@@ -10,6 +10,9 @@ Conservative rules:
   min quantity and MIN_NOTIONAL. Filters supplied by caller; live filters
   do not represent historical changes.
 * Per-pair research accounts, not an aggregate multi-asset portfolio.
+* Exposure time counts bars with a position after opening orders, including
+  a bar stopped intrabar. Mean/peak capital exposure is sampled at bar CLOSE
+  after exits; it is not a time-weighted intrabar average or intrabar maximum.
 No Binance credentials or order submission exist in this module.
 """
 from dataclasses import dataclass, asdict
@@ -202,13 +205,9 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
             pending = None
 
         if qty > 0:
+            # Coarse time-in-position measure: an intrabar exit still counts
+            # this bar. OHLC cannot identify the actual elapsed exposure time.
             exposure_bars += 1
-            live_notional = qty * candle.close
-            peak_position_notional = max(peak_position_notional, live_notional)
-            running_equity = cash + live_notional
-            percent = 100 * live_notional / running_equity if running_equity > 0 else 0
-            gross_exposure_sum_pct += percent
-            peak_allocation_equity_pct = max(peak_allocation_equity_pct, percent)
             # STOP wins ambiguous intrabar order. A stop gap is filled at OPEN.
             if candle.low <= stop_px:
                 reference = min(candle.open, stop_px)
@@ -225,6 +224,17 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
                 # new stop becomes effective on the next candle only.
                 next_stop = candle.high - distance * cfg.trailing_atr_multiple / 2.0
                 stop_px = max(stop_px, min(next_stop, candle.close))
+
+        # Sample deployed capital only AFTER any exit in this bar. A stopped
+        # position cannot inherit a later closing price that it never held.
+        # Same-bar round trips have zero close exposure but nonzero entry
+        # allocation and time-in-position bars, as those are different metrics.
+        live_notional = qty * candle.close
+        peak_position_notional = max(peak_position_notional, live_notional)
+        running_equity = cash + live_notional
+        percent = 100 * live_notional / running_equity if running_equity > 0 else 0
+        gross_exposure_sum_pct += percent
+        peak_allocation_equity_pct = max(peak_allocation_equity_pct, percent)
 
         # Hypothetical liquidation net of fees, spread and adverse slip.
         marked_equity = cash + qty * candle.close * (1 - buy_load) * (1 - fee)
@@ -291,6 +301,11 @@ def simulate_v3(candles, signals, first, stop, cfg=ExecutionConfig()):
         "peak_open_position_pct_equity": round(peak_allocation_equity_pct, 3),
         "mean_position_pct_equity_over_all_bars": round(gross_exposure_sum_pct / (stop - first), 3),
         "exposure_pct": round(100 * exposure_bars / (stop - first), 2),
+        "exposure_metric_definitions": {
+            "exposure_pct": "Percentage of bars with a position after opening orders; intrabar exit bars count in full, not exact elapsed holding time.",
+            "capital_exposure": "Mean and peak position metrics sample end-of-bar holdings after stops/targets, at close prices and gross equity; all simulation bars enter the mean.",
+            "same_bar_round_trips": "Count toward exposure bars and entry allocations but have zero end-of-bar capital exposure; peaks are close-sampled, not intrabar maxima.",
+        },
         "fees_paid_usdc": round(fee_paid, 4),
         "estimated_spread_slippage_usdc": round(impact_paid, 4),
         "blocked_orders_by_filters": blocked_orders,
