@@ -59,7 +59,15 @@ Csak historikus kutatás, kereskedés nem történt. Kód:
 | BTC-korreláció (corr_btc_90) | nagy → jobb | 1/7/28 nap | **nem** |
 
 BTC-időzítés: egyetlen túlélő van, a BTC napi hozama a következő napon kicsit
-visszafordul (ρ = −0,07). Ez kisebb, mint a ki-be kereskedés költsége.
+visszafordul (ρ = −0,07). Számokban:
+
+- **2018–2022:** csökkenő nap után a következő nap átlagosan +0,27%, emelkedő
+  nap után −0,02% volt. A különbség 0,29%/nap, ami **még a 0,30%-os oda-vissza
+  költség alatt van**.
+- **2023–2026:** a különbség eltűnt (−0,01%).
+
+Ez a tipikus „napi kereskedési” mintázat: statisztikailag valódi, de a díj
+megeszi, és idővel el is tűnik.
 
 **Ami nem élte túl:**
 
