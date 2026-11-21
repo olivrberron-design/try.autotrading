@@ -7,6 +7,18 @@ CARRY_ASSETS = ("CARRY_BTC", "CARRY_ETH")
 SHORT_ASSETS = ("SHORT_BTC", "SHORT_ETH")   # 1x short perp, capital = margin
 
 
+# Rebalance grids are anchored to absolute UTC dates, not to the panel start,
+# so a forward/paper panel that starts later rebalances on the same days as
+# the backtest. Phase = 2017-08-01 (a Tuesday): weekly decisions are taken at
+# the close of each Tuesday (UTC), exactly as in the frozen research runs.
+GRID_EPOCH_DAY = 17379  # days from 1970-01-01 to 2017-08-01
+
+
+def _grid_anchor(p, t, period):
+    day = p.start_ms // 86_400_000 + t
+    return t - ((day - GRID_EPOCH_DAY) % period)
+
+
 def _tradable(p, a, t):
     return (a in p.c and p.c[a][t] is not None and p.age(a)[t] >= MIN_AGE)
 
@@ -31,7 +43,7 @@ def _vol_scale(p, weights, t, target=VOL_TARGET, n=30):
 
 def xs_mom_top(p, t, lookback=28, top=5, rebalance=7, market_sma=100):
     # Rebalance on a fixed weekly grid; between rebalances hold the last pick.
-    anchor = t - (t % rebalance)
+    anchor = _grid_anchor(p, t, rebalance)
     key = ("xs", lookback, top, rebalance, market_sma, anchor)
 
     def pick():
@@ -302,7 +314,7 @@ def _ridge_coef(p, anchor, rebalance=7, horizon=7):
         A = [[0.0] * nf for _ in range(nf)]
         b = [0.0] * nf
         n = 0
-        for s in range(anchor % rebalance, anchor - horizon, rebalance):
+        for s in range(anchor % rebalance, anchor - horizon, rebalance):  # same phase as anchor
             if s + 1 + horizon > anchor:
                 break
             z = _cross_section(p, s)
@@ -330,7 +342,7 @@ def _ridge_coef(p, anchor, rebalance=7, horizon=7):
 
 
 def xs_ridge_rank(p, t, top=5, rebalance=7, market_sma=100):
-    anchor = t - (t % rebalance)
+    anchor = _grid_anchor(p, t, rebalance)
 
     def pick():
         if not _btc_risk_on(p, anchor, market_sma):
@@ -358,7 +370,7 @@ def bh_btceth(p, t):
 
 
 def ew_universe(p, t):
-    anchor = t - (t % 30)
+    anchor = _grid_anchor(p, t, 30)
     names = p.memo(("ew", anchor), lambda: [
         a for a in p.assets if a not in CARRY_ASSETS and _tradable(p, a, anchor)])
     names = [a for a in names if p.c[a][t] is not None]

@@ -1,0 +1,53 @@
+name: lab4 forward paper test
+
+# Daily forward test of FROZEN lab4 strategies on new public market data.
+# Hypothetical fills only: no API keys, no exchange account, no orders.
+on:
+  schedule:
+    - cron: '23 0 * * *'   # daily, shortly after the 00:00 UTC daily close
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lab4-paper
+  cancel-in-progress: false
+
+jobs:
+  paper:
+    name: Forward paper test (public data, no orders)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # only to commit paper/forward.json; no credentials are used
+    steps:
+      - name: Get frozen strategy code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Offline lab4 tests
+        run: python -m unittest tests.test_lab4 -v
+
+      - name: Update forward paper record
+        run: python -m lab4.paper
+
+      - name: Commit forward record
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add paper/forward.json
+          if ! git diff --cached --quiet; then
+            git commit -m "paper: forward test update $(date -u +%F) [skip ci]"
+            ok=0
+            for i in 1 2 3; do
+              if git pull --rebase origin main && git push origin HEAD:main; then ok=1; break; fi
+              sleep 5
+            done
+            test "$ok" = 1
+          fi

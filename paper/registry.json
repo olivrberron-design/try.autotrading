@@ -1,0 +1,31 @@
+{
+ "note": "Frozen forward paper test. Hypothetical fills only; no orders.",
+ "strategies": [
+  {
+   "id": "xs_mom_top5_vt",
+   "module": "lab4.strategies",
+   "function": "xs_mom_top5_vt",
+   "registered_utc": "2026-11-21T21:43:39+00:00",
+   "first_fill_day": "2026-11-22",
+   "cost_per_side": 0.0015,
+   "frozen_files": {
+    "lab4/engine.py": "1a988cd572405c9b2fc59833528464a94e86151722ac895cefcedee056df3545",
+    "lab4/strategies.py": "daf9375df69f1a3c6e1a1b178e7f7274939bc1827c95958d1d15861c4738a508",
+    "lab4/data.py": "f190674d333ee0d8fee468bbb7d5f92a2a3eb9f5275754e1199bec68cbea89d6"
+   }
+  },
+  {
+   "id": "btceth_trend_vt",
+   "module": "lab4.strategies",
+   "function": "btceth_trend_vt",
+   "registered_utc": "2026-11-21T21:43:39+00:00",
+   "first_fill_day": "2026-11-22",
+   "cost_per_side": 0.0015,
+   "frozen_files": {
+    "lab4/engine.py": "1a988cd572405c9b2fc59833528464a94e86151722ac895cefcedee056df3545",
+    "lab4/strategies.py": "daf9375df69f1a3c6e1a1b178e7f7274939bc1827c95958d1d15861c4738a508",
+    "lab4/data.py": "f190674d333ee0d8fee468bbb7d5f92a2a3eb9f5275754e1199bec68cbea89d6"
+   }
+  }
+ ]
+}

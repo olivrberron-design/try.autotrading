@@ -141,5 +141,40 @@ class MetricsTest(unittest.TestCase):
         self.assertAlmostEqual(s["total_return"], 0.21)
 
 
+class PaperTest(unittest.TestCase):
+    def test_rebalance_grid_independent_of_panel_start(self):
+        """A paper panel starting later must rebalance on the same UTC days."""
+        full = synthetic_panel(n=700)
+        shift = 5
+        late = Panel(shift * DAY_MS, 700 - shift)
+        for a in ASSETS:
+            late.add_asset(a, {(k + shift) * DAY_MS: (full.o[a][k + shift], full.h[a][k + shift],
+                                                       full.l[a][k + shift], full.c[a][k + shift],
+                                                       full.qv[a][k + shift]) for k in range(700 - shift)})
+        for t in range(500, 690, 3):
+            for name in ("xs_mom_top5", "xs_mom_top5_vt", "btceth_trend_vt"):
+                a, b = S.REGISTERED[name](full, t), S.REGISTERED[name](late, t - shift)
+                self.assertEqual(set(a), set(b), f"{name} t={t}")
+                for k in a:
+                    self.assertAlmostEqual(a[k], b[k], places=12)
+
+    def test_changed_frozen_file_stops_the_run(self):
+        import json
+        import tempfile
+        from lab4 import paper
+        with tempfile.TemporaryDirectory() as d:
+            old = paper.REGISTRY
+            paper.REGISTRY = Path(d) / "registry.json"
+            try:
+                paper.REGISTRY.write_text(json.dumps({"strategies": [{
+                    "id": "x", "module": "lab4.strategies", "function": "xs_mom_top5_vt",
+                    "registered_utc": "2026-01-01T00:00:00+00:00", "first_fill_day": "2026-01-02",
+                    "cost_per_side": 0.0015, "frozen_files": {"lab4/strategies.py": "0" * 64}}]}))
+                with self.assertRaises(SystemExit):
+                    paper.update()
+            finally:
+                paper.REGISTRY = old
+
+
 if __name__ == "__main__":
     unittest.main()
