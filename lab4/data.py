@@ -43,8 +43,8 @@ def _get(url, retries=4, agent="lab4-research/0.1"):
             with urllib.request.urlopen(req, timeout=60) as r:
                 return r.read()
         except urllib.error.HTTPError as e:
-            if e.code == 404:
-                return None
+            if e.code in (400, 404):
+                return None  # missing archive or unknown/delisted symbol: no data
             if attempt == retries - 1:
                 raise
         except (urllib.error.URLError, OSError):
@@ -112,7 +112,15 @@ def klines(symbol, start, end, interval="1d", market="spot"):
             return _read_zip_csv(blob) if blob else []
 
         if complete_month:
-            rows = _cached(CACHE / f"{key}.json", fetch)
+            path = CACHE / f"{key}.json"
+            rows = _cached(path, fetch)
+            if not rows and market == "spot":
+                # Monthly archive not published yet (first days of a month) or
+                # missing: use the public API for that month, never cache [].
+                path.unlink(missing_ok=True)
+                rows = _api_month(symbol, y, m, interval)
+                if rows:
+                    _cached(path, lambda: rows)
         else:
             rows = _api_month(symbol, y, m, interval) if market == "spot" else []
         for r in rows:
@@ -136,9 +144,11 @@ def daily_klines(symbol, start, end, market="spot"):
 def _api_month(symbol, y, m, interval="1d"):
     """Current, still incomplete month: page the public REST API."""
     cursor = int(datetime(y, m, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    month_end = int(datetime(ny, nm, 1, tzinfo=timezone.utc).timestamp() * 1000)
     now_ms = int(time.time() * 1000)
     rows = []
-    while cursor < now_ms:
+    while cursor < min(now_ms, month_end):
         blob = _get(f"{API}?symbol={symbol}&interval={interval}&startTime={cursor}&limit=1000")
         page = json.loads(blob) if blob else []
         if not page:
@@ -149,7 +159,7 @@ def _api_month(symbol, y, m, interval="1d"):
             break
         cursor = nxt
     # Drop the still-forming candle: only candles closed before "now".
-    return [r for r in rows if int(r[6]) < now_ms]
+    return [r for r in rows if int(r[6]) < now_ms and int(r[0]) < month_end]
 
 
 def funding_rates(symbol, start, end):

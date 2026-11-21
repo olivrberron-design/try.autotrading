@@ -1,0 +1,46 @@
+{
+ "fill_model": "official 00:00 UTC daily open, cost per side as registered",
+ "latest_open_day": "2026-11-21",
+ "strategies": {
+  "btceth_trend_vt": {
+   "benchmarks_total_return": {
+    "bh_btc": 0.0,
+    "bh_btceth": 0.0
+   },
+   "days": 0,
+   "decisions": [],
+   "equity_curve": [],
+   "first_fill_day": "2026-11-22",
+   "max_drawdown": -0.0,
+   "orders": 0,
+   "registered_utc": "2026-11-21T21:43:39+00:00",
+   "spy": {
+    "last_close": "2026-11-20",
+    "total_return": 0.0
+   },
+   "today_target": null,
+   "total_return": 0.0
+  },
+  "xs_mom_top5_vt": {
+   "benchmarks_total_return": {
+    "bh_btc": 0.0,
+    "bh_btceth": 0.0
+   },
+   "days": 0,
+   "decisions": [],
+   "equity_curve": [],
+   "first_fill_day": "2026-11-22",
+   "max_drawdown": -0.0,
+   "orders": 0,
+   "registered_utc": "2026-11-21T21:43:39+00:00",
+   "spy": {
+    "last_close": "2026-11-20",
+    "total_return": 0.0
+   },
+   "today_target": null,
+   "total_return": 0.0
+  }
+ },
+ "type": "FORWARD_PAPER_TEST_NO_ORDERS",
+ "updated_utc": "2026-11-21T21:44:34+00:00"
+}
