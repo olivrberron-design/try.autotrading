@@ -156,6 +156,17 @@ használom.
 A jel stabil sáv, nem egy szerencsés paraméter. A tőke átlagosan csak
 18–35%-a van befektetve.
 
+## Mintázatkeresés (indikátorok, order flow, naptár)
+
+- 41 jellemzőt (MACD, RSI, Bollinger, order flow stb.) teszteltem 268
+  tesztben, korrekcióval a sok párhuzamos teszt miatt.
+- 18 stabil mintázat maradt. Főleg az alacsony volatilitás, a 90 napos csúcs
+  közelsége és a likviditás jelez előre. A klasszikus indikátorok és az order
+  flow nem élték túl a szűrést.
+- A belőlük épített `pattern_top5_vt` stratégia 2023–2026-ban évi 23%-ot
+  hozott, ez gyengébb, mint a sima momentum 33%-a.
+- Részletek: [`PATTERNS.md`](PATTERNS.md).
+
 ## Korlátok és torzítások
 
 - Összesen 18 stratégiát próbáltam ki. A legjobb holdout-eredmény ezért
@@ -172,9 +183,14 @@ A jel stabil sáv, nem egy szerencsés paraméter. A tőke átlagosan csak
 1. **Ugyanezen a történeten nem érdemes tovább keresgélni.** A holdout el van
    használva. Ha addig próbálkozom, amíg valami átmegy, az biztosan átmegy, de
    hamisan. Ez túlillesztés.
-2. **Előre rögzített papírteszt új adaton.** Az `xs_mom_top5_vt` és a
-   `core_blend_lo` naponta számolna célportfóliót publikus adatból, és
-   hipotetikus kötésnaplót vezetne (megbízás nélkül) 3–6 hónapig, az S&P-vel
-   összevetve. Ehhez a felhasználó jóváhagyása kell.
+2. **Előre rögzített papírteszt új adaton: elindítva 2026-11-21-én.**
+   - Az `xs_mom_top5_vt` és a `btceth_trend_vt` SHA-256-tal befagyasztva fut, az
+     első hipotetikus kitöltés a 2026-11-22-i nyitás.
+   - Naponta a GitHub Actions `lab4 forward paper test` workflow futtatja, a
+     kimenet a [`paper/forward.json`](../paper/forward.json), a leírás a
+     [`paper/README.md`](../paper/README.md).
+   - A `core_blend_lo` nem került be. A carry lábához napi funding adat kellene,
+     a Binance publikus archívuma viszont csak havonta közli, a futures API-t
+     pedig a GitHub amerikai szerverei nem érik el.
 3. Az élő vagy demo kereskedés csak a papírteszt után, külön döntéssel jöhet
    szóba.

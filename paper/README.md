@@ -23,5 +23,9 @@ futnak. Csak hipotetikus kötések: nincs API-kulcs, nincs tőzsdei fiók, nincs
 - **Kiértékelés:** legalább 3–6 hónap után. Ennél rövidebb idő alatt a
   véletlen dominál.
 
-Regisztrált stratégiák: `xs_mom_top5_vt` (legjobb jelölt) és `btceth_trend_vt`
-(referencia), mindkettő első kitöltési napja 2026-11-22.
+Regisztrált stratégiák (mindegyik első kitöltési napja 2026-11-22):
+
+- `xs_mom_top5_vt`: a legjobb historikus jelölt;
+- `btceth_trend_vt`: referencia;
+- `pattern_top5_vt`: a mintázatkeresésből épített stratégia, lásd
+  [`lab4/PATTERNS.md`](../lab4/PATTERNS.md).

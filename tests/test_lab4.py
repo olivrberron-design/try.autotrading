@@ -176,5 +176,32 @@ class PaperTest(unittest.TestCase):
                 paper.REGISTRY = old
 
 
+class PatternStrategyTest(unittest.TestCase):
+    def test_pattern_strategy_ignores_future_data(self):
+        from lab4 import pattern_strategy as PS
+        clean = synthetic_panel(seed=7)
+        active = [t for t in range(400, 690, 5) if PS.pattern_top5_vt(clean, t)]
+        self.assertGreater(len(active), 0, "pattern strategy never invested: test would be vacuous")
+        for t in active[:: max(1, len(active) // 3)][:3]:
+            a = PS.pattern_top5_vt(clean, t)
+            b = PS.pattern_top5_vt(synthetic_panel(seed=7, corrupt_after=t), t)
+            self.assertEqual(set(a), set(b))
+            for k in a:
+                self.assertAlmostEqual(a[k], b[k], places=12)
+
+    def test_features_ignore_future_data(self):
+        from lab4 import features
+        t = 500
+        clean = features.all_features(synthetic_panel())
+        dirty = features.all_features(synthetic_panel(corrupt_after=t))
+        for a in clean:
+            for f in features.FEATURES:
+                x, y = clean[a][f][t], dirty[a][f][t]
+                if x is None:
+                    self.assertIsNone(y, f)
+                else:
+                    self.assertAlmostEqual(x, y, places=9, msg=f"{a} {f}")
+
+
 if __name__ == "__main__":
     unittest.main()
