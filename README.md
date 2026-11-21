@@ -1,3 +1,16 @@
+## lab4 — S&P 500-hoz mért, többeszközös kutatás (2026. november)
+
+Historikus szimuláció 16 érmén, funding carry-vel, piaci helyzet szerinti
+bontással és napon belüli stratégiákkal, az S&P 500-hoz (SPY) mérve.
+Eredmény: **nincs validált nyerő stratégia**; a legjobb jelölt a
+volatilitás-célzott keresztmetszeti momentum (`xs_mom_top5_vt`).
+Részletek: [`lab4/REPORT.md`](lab4/REPORT.md), protokoll:
+[`lab4/PROTOCOL.md`](lab4/PROTOCOL.md), futtatás (csak publikus adat):
+
+```sh
+python3 -m lab4.run --holdout && python3 -m lab4.publish
+```
+
 ## Engine 3.0 — advanced, read-only backtesting
 
 The same [GitHub Strategy Lab workflow](https://github.com/olivrberron-design/try.autotrading/actions/workflows/strategy-lab.yml) now runs **two separate research engines** (in `discover` mode):
