@@ -1,6 +1,6 @@
 {
  "fill_model": "official 00:00 UTC daily open, cost per side as registered",
- "latest_open_day": "2026-11-21",
+ "latest_open_day": "2026-11-22",
  "strategies": {
   "btceth_trend_vt": {
    "benchmarks_total_return": {
@@ -8,7 +8,13 @@
     "bh_btceth": 0.0
    },
    "days": 0,
-   "decisions": [],
+   "decisions": [
+    {
+     "decided_at_close_of": "2026-11-21",
+     "fill_open": "2026-11-22",
+     "weights": {}
+    }
+   ],
    "equity_curve": [],
    "first_fill_day": "2026-11-22",
    "max_drawdown": -0.0,
@@ -18,7 +24,11 @@
     "last_close": "2026-11-20",
     "total_return": 0.0
    },
-   "today_target": null,
+   "today_target": {
+    "decided_at_close_of": "2026-11-21",
+    "fill_open": "2026-11-22",
+    "weights": {}
+   },
    "total_return": 0.0
   },
   "pattern_top5_vt": {
@@ -27,7 +37,13 @@
     "bh_btceth": 0.0
    },
    "days": 0,
-   "decisions": [],
+   "decisions": [
+    {
+     "decided_at_close_of": "2026-11-21",
+     "fill_open": "2026-11-22",
+     "weights": {}
+    }
+   ],
    "equity_curve": [],
    "first_fill_day": "2026-11-22",
    "max_drawdown": -0.0,
@@ -37,7 +53,11 @@
     "last_close": "2026-11-20",
     "total_return": 0.0
    },
-   "today_target": null,
+   "today_target": {
+    "decided_at_close_of": "2026-11-21",
+    "fill_open": "2026-11-22",
+    "weights": {}
+   },
    "total_return": 0.0
   },
   "xs_mom_top5_vt": {
@@ -46,7 +66,13 @@
     "bh_btceth": 0.0
    },
    "days": 0,
-   "decisions": [],
+   "decisions": [
+    {
+     "decided_at_close_of": "2026-11-21",
+     "fill_open": "2026-11-22",
+     "weights": {}
+    }
+   ],
    "equity_curve": [],
    "first_fill_day": "2026-11-22",
    "max_drawdown": -0.0,
@@ -56,10 +82,14 @@
     "last_close": "2026-11-20",
     "total_return": 0.0
    },
-   "today_target": null,
+   "today_target": {
+    "decided_at_close_of": "2026-11-21",
+    "fill_open": "2026-11-22",
+    "weights": {}
+   },
    "total_return": 0.0
   }
  },
  "type": "FORWARD_PAPER_TEST_NO_ORDERS",
- "updated_utc": "2026-11-21T22:15:07+00:00"
+ "updated_utc": "2026-11-22T07:10:29+00:00"
 }
