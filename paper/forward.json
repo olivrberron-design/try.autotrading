@@ -1,13 +1,13 @@
 {
  "fill_model": "official 00:00 UTC daily open, cost per side as registered",
- "latest_open_day": "2026-11-27",
+ "latest_open_day": "2026-11-28",
  "strategies": {
   "btceth_trend_vt": {
    "benchmarks_total_return": {
-    "bh_btc": 0.004492746419626048,
-    "bh_btceth": 0.002749222309847532
+    "bh_btc": -0.006353229170161234,
+    "bh_btceth": -0.010780261907727406
    },
-   "days": 5,
+   "days": 6,
    "decisions": [
     {
      "decided_at_close_of": "2026-11-21",
@@ -38,6 +38,11 @@
      "decided_at_close_of": "2026-11-26",
      "fill_open": "2026-11-27",
      "weights": {}
+    },
+    {
+     "decided_at_close_of": "2026-11-27",
+     "fill_open": "2026-11-28",
+     "weights": {}
     }
    ],
    "equity_curve": [
@@ -59,6 +64,10 @@
     ],
     [
      "2026-11-27",
+     1.0
+    ],
+    [
+     "2026-11-28",
      1.0
     ]
    ],
@@ -68,22 +77,22 @@
    "registered_utc": "2026-11-21T21:43:39+00:00",
    "spy": {
     "base_close_date": "2026-11-20",
-    "last_close_date": "2026-11-25",
-    "total_return": 0.03898176997087299
+    "last_close_date": "2026-11-27",
+    "total_return": 0.05582698120050633
    },
    "today_target": {
-    "decided_at_close_of": "2026-11-26",
-    "fill_open": "2026-11-27",
+    "decided_at_close_of": "2026-11-27",
+    "fill_open": "2026-11-28",
     "weights": {}
    },
    "total_return": 0.0
   },
   "pattern_top5_vt": {
    "benchmarks_total_return": {
-    "bh_btc": 0.004492746419626048,
-    "bh_btceth": 0.002749222309847532
+    "bh_btc": -0.006353229170161234,
+    "bh_btceth": -0.010780261907727406
    },
-   "days": 5,
+   "days": 6,
    "decisions": [
     {
      "decided_at_close_of": "2026-11-21",
@@ -114,6 +123,11 @@
      "decided_at_close_of": "2026-11-26",
      "fill_open": "2026-11-27",
      "weights": {}
+    },
+    {
+     "decided_at_close_of": "2026-11-27",
+     "fill_open": "2026-11-28",
+     "weights": {}
     }
    ],
    "equity_curve": [
@@ -135,6 +149,10 @@
     ],
     [
      "2026-11-27",
+     1.0
+    ],
+    [
+     "2026-11-28",
      1.0
     ]
    ],
@@ -144,22 +162,22 @@
    "registered_utc": "2026-11-21T22:11:13+00:00",
    "spy": {
     "base_close_date": "2026-11-20",
-    "last_close_date": "2026-11-25",
-    "total_return": 0.03898176997087299
+    "last_close_date": "2026-11-27",
+    "total_return": 0.05582698120050633
    },
    "today_target": {
-    "decided_at_close_of": "2026-11-26",
-    "fill_open": "2026-11-27",
+    "decided_at_close_of": "2026-11-27",
+    "fill_open": "2026-11-28",
     "weights": {}
    },
    "total_return": 0.0
   },
   "xs_mom_top5_vt": {
    "benchmarks_total_return": {
-    "bh_btc": 0.004492746419626048,
-    "bh_btceth": 0.002749222309847532
+    "bh_btc": -0.006353229170161234,
+    "bh_btceth": -0.010780261907727406
    },
-   "days": 5,
+   "days": 6,
    "decisions": [
     {
      "decided_at_close_of": "2026-11-21",
@@ -190,6 +208,11 @@
      "decided_at_close_of": "2026-11-26",
      "fill_open": "2026-11-27",
      "weights": {}
+    },
+    {
+     "decided_at_close_of": "2026-11-27",
+     "fill_open": "2026-11-28",
+     "weights": {}
     }
    ],
    "equity_curve": [
@@ -212,6 +235,10 @@
     [
      "2026-11-27",
      1.0
+    ],
+    [
+     "2026-11-28",
+     1.0
     ]
    ],
    "first_fill_day": "2026-11-22",
@@ -220,17 +247,17 @@
    "registered_utc": "2026-11-21T21:43:39+00:00",
    "spy": {
     "base_close_date": "2026-11-20",
-    "last_close_date": "2026-11-25",
-    "total_return": 0.03898176997087299
+    "last_close_date": "2026-11-27",
+    "total_return": 0.05582698120050633
    },
    "today_target": {
-    "decided_at_close_of": "2026-11-26",
-    "fill_open": "2026-11-27",
+    "decided_at_close_of": "2026-11-27",
+    "fill_open": "2026-11-28",
     "weights": {}
    },
    "total_return": 0.0
   }
  },
  "type": "FORWARD_PAPER_TEST_NO_ORDERS",
- "updated_utc": "2026-11-27T08:51:33+00:00"
+ "updated_utc": "2026-11-28T08:10:20+00:00"
 }
